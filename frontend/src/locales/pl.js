@@ -1110,6 +1110,8 @@ export default {
   'Open progression settings': 'Otwórz ustawienia progresji',
   'Hevy is rate-limiting requests — wait a minute and try again': 'Hevy ogranicza liczbę zapytań — odczekaj minutę i spróbuj ponownie',
   // --- log a past workout ---
+  "Add at least one exercise": "Dodaj przynajmniej jedno ćwiczenie",
+  "Pick a day and a routine, tweak the sets, save. No timers.": "Wybierz dzień i plan, dostosuj serie, zapisz. Bez stopera.",
   'Log a past workout': 'Zapisz miniony trening',
   'Logged on the usual workout screen, without timers.': 'Zapisujesz na zwykłym ekranie treningu, tylko bez minutników.',
   'Date': 'Data',
@@ -1351,6 +1353,10 @@ export default {
   'Event': 'Event',
   'Event added': 'Event added',
   'Log a workout done this day': 'Log a workout done this day',
+  "Previous month": "Poprzedni miesiąc",
+  "Next month": "Następny miesiąc",
+  "Previous year": "Poprzedni rok",
+  "Next year": "Następny rok",
   'Open calendar': 'Open calendar',
   'Plan a routine for this day': 'Plan a routine for this day',
   'e.g. 10K race': 'e.g. 10K race',
@@ -1406,5 +1412,7 @@ export default {
   'All day': 'All day',
   'Starts at {0}': 'Starts at {0}',
   'Turn on notifications in Settings to get event reminders.': 'Turn on notifications in Settings to get event reminders.',
+  "Removes every later occurrence.": "Usuwa wszystkie późniejsze powtórzenia.",
+  "Rewrites this and every later occurrence.": "Nadpisuje to i wszystkie późniejsze powtórzenia.",
   'Set a start time to be notified before the event.': 'Set a start time to be notified before the event.',
 }

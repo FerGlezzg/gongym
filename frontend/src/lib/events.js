@@ -129,3 +129,33 @@ export function expandRecurrence(iso, freq) {
   }
   return out
 }
+
+/**
+ * The frequency key an occurrence repeats at, read back from its series: the gap between
+ * this event's date and its next sibling's. 'none' when it has no series or no later sibling.
+ */
+export function seriesFrequency(events, event) {
+  if (!event || !event.series) return 'none'
+  const next = (events || [])
+    .filter(e => e.series === event.series && e.d > event.d)
+    .map(e => e.d)
+    .sort()[0]
+  if (!next) return 'none'
+  return Object.keys(RECUR).find(f => f !== 'none' && expandRecurrence(event.d, f)[1] === next) || 'none'
+}
+
+/**
+ * Plan an edit to `event` whose recurrence may have changed from `prevFreq` to `freq`.
+ * Only a changed frequency touches the series; then it rewrites this occurrence forward.
+ * Pure — returns the ids to drop and the dates to (re)create, for the caller to apply.
+ * @returns {{ series: string|null, removeIds: string[], forwardDates: string[] }}
+ */
+export function planEventEdit(events, event, { date, freq, prevFreq, seriesId }) {
+  const recurChanged = freq !== prevFreq
+  const forwardDates = recurChanged && freq !== 'none' ? expandRecurrence(date, freq).slice(1) : []
+  const series = forwardDates.length ? seriesId : (event.series || null)
+  const removeIds = recurChanged && event.series
+    ? (events || []).filter(x => x.series === event.series && x.id !== event.id && x.d > date).map(x => x.id)
+    : []
+  return { series, removeIds, forwardDates }
+}

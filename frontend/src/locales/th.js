@@ -783,6 +783,8 @@ export default {
   'Open progression settings': 'เปิดการตั้งค่าการเพิ่มน้ำหนัก',
   'Hevy is rate-limiting requests — wait a minute and try again': 'Hevy จำกัดจำนวนคำขอ — รอสักครู่แล้วลองอีกครั้ง',
   // --- log a past workout ---
+  "Add at least one exercise": "เพิ่มอย่างน้อยหนึ่งท่า",
+  "Pick a day and a routine, tweak the sets, save. No timers.": "เลือกวันและโปรแกรม ปรับเซ็ต แล้วบันทึก ไม่มีตัวจับเวลา",
   'Log a past workout': 'บันทึกการฝึกย้อนหลัง',
   'Logged on the usual workout screen, without timers.': 'บันทึกบนหน้าจอฝึกตามปกติ เพียงแต่ไม่มีตัวจับเวลา',
   'Date': 'วันที่',
@@ -1362,6 +1364,10 @@ export default {
   'Event': 'Event',
   'Event added': 'Event added',
   'Log a workout done this day': 'Log a workout done this day',
+  "Previous month": "เดือนก่อนหน้า",
+  "Next month": "เดือนถัดไป",
+  "Previous year": "ปีก่อนหน้า",
+  "Next year": "ปีถัดไป",
   'Open calendar': 'Open calendar',
   'Plan a routine for this day': 'Plan a routine for this day',
   'e.g. 10K race': 'e.g. 10K race',
@@ -1417,5 +1423,7 @@ export default {
   'All day': 'All day',
   'Starts at {0}': 'Starts at {0}',
   'Turn on notifications in Settings to get event reminders.': 'Turn on notifications in Settings to get event reminders.',
+  "Removes every later occurrence.": "ลบทุกครั้งที่เกิดขึ้นภายหลัง",
+  "Rewrites this and every later occurrence.": "เขียนรายการนี้และทุกครั้งที่เกิดขึ้นภายหลังใหม่",
   'Set a start time to be notified before the event.': 'Set a start time to be notified before the event.',
 }

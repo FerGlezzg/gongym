@@ -775,6 +775,8 @@ export default {
   'Open progression settings': 'Progresszió beállításainak megnyitása',
   'Hevy is rate-limiting requests — wait a minute and try again': 'A Hevy korlátozza a kéréseket — várj egy percet, és próbáld újra',
   // --- log a past workout ---
+  "Add at least one exercise": "Adj hozzá legalább egy gyakorlatot",
+  "Pick a day and a routine, tweak the sets, save. No timers.": "Válassz egy napot és egy rutint, állítsd be a sorozatokat, mentsd. Nincs időzítő.",
   'Log a past workout': 'Korábbi edzés rögzítése',
   'Logged on the usual workout screen, without timers.': 'A szokásos edzésképernyőn rögzíted, csak időzítők nélkül.',
   'Date': 'Dátum',
@@ -1354,6 +1356,10 @@ export default {
   'Event': 'Event',
   'Event added': 'Event added',
   'Log a workout done this day': 'Log a workout done this day',
+  "Previous month": "Előző hónap",
+  "Next month": "Következő hónap",
+  "Previous year": "Előző év",
+  "Next year": "Következő év",
   'Open calendar': 'Open calendar',
   'Plan a routine for this day': 'Plan a routine for this day',
   'e.g. 10K race': 'e.g. 10K race',
@@ -1409,5 +1415,7 @@ export default {
   'All day': 'All day',
   'Starts at {0}': 'Starts at {0}',
   'Turn on notifications in Settings to get event reminders.': 'Turn on notifications in Settings to get event reminders.',
+  "Removes every later occurrence.": "Törli az összes későbbi ismétlődést.",
+  "Rewrites this and every later occurrence.": "Felülírja ezt és az összes későbbi ismétlődést.",
   'Set a start time to be notified before the event.': 'Set a start time to be notified before the event.',
 }

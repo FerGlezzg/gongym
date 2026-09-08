@@ -1,9 +1,10 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, DAYN, MONTHS_LONG } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { bwSheet, goalSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, dayHubSheet, weekPresetsSheet } from '../sheets.jsx'
+import { bwSheet, goalSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, dayHubSheet, weekPresetsSheet, monthPickerSheet } from '../sheets.jsx'
 import { dietOf } from '../lib/nutrition.js'
 import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
@@ -26,6 +27,13 @@ export default function Home() {
   const user = useStore(s => s.user)
 
   const today = new Date()
+  // The heatmap can page back/forward through months without leaving Home. `monthOff` is
+  // signed months from the current one; 0 keeps it pinned to today.
+  const [monthOff, setMonthOff] = useState(0)
+  const viewMonth = new Date(today.getFullYear(), today.getMonth() + monthOff, 1)
+  const vMo = viewMonth.getMonth(), vYr = viewMonth.getFullYear()
+  const setViewMonth = (yr, mo) => setMonthOff((yr - today.getFullYear()) * 12 + (mo - today.getMonth()))
+
   // A weekday can hold several routines. `todayRoutines` is the whole day; `routine` is the
   // first, kept for the one-routine glyph. The derived session name joins them (§9).
   const todayRoutines = effectiveRoutines(S, todayISO())
@@ -105,10 +113,17 @@ export default function Home() {
           : <Icon name="plus" className="chev" />}
       </div>
       <div className="row between" style={{ marginTop: 14, marginBottom: 2 }}>
-        <h2 style={{ margin: 0, textTransform: 'capitalize' }}>{t(MONTHS_LONG[today.getMonth()])}</h2>
-        <button className="chip nocap" style={{ padding: '3px 10px', fontSize: 12 }} onClick={() => calendarSheet()}>{t('Open calendar')}</button>
+        <div className="row" style={{ gap: 1, alignItems: 'center', minWidth: 0 }}>
+          <button className="iconbtn" style={{ width: 28, height: 28, fontSize: 13 }} onClick={() => setMonthOff(o => o - 1)} aria-label={t('Previous month')}><Icon name="chevronLeft" /></button>
+          <h2 style={{ margin: 0, textTransform: 'capitalize', cursor: 'pointer', padding: '0 4px' }}
+            {...tappable(() => monthPickerSheet(vYr, vMo, setViewMonth))}>
+            {t(MONTHS_LONG[vMo])}{vYr !== today.getFullYear() ? ' ' + vYr : ''}
+          </h2>
+          <button className="iconbtn" style={{ width: 28, height: 28, fontSize: 13 }} onClick={() => setMonthOff(o => o + 1)} aria-label={t('Next month')}><Icon name="chevronRight" /></button>
+        </div>
+        {monthOff !== 0 && <button className="chip nocap" style={{ padding: '3px 10px', fontSize: 12 }} onClick={() => setMonthOff(0)}>{t('Today')}</button>}
       </div>
-      <Heatmap S={S} view="month" dots={iso => dayDot(S, iso)} events={iso => eventOn(S, iso)} onDay={dayHubSheet} />
+      <Heatmap S={S} view="month" month={viewMonth} onNav={d => setMonthOff(o => o + d)} dots={iso => dayDot(S, iso)} events={iso => eventOn(S, iso)} onDay={dayHubSheet} />
     </div>
 
     {!S.routines.length && !S.active && (
