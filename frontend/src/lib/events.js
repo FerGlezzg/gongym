@@ -1,0 +1,63 @@
+// Custom calendar events — a race, a match, a surf session. Pure helpers, unit-tested in
+// events.test.js. An event is { id, d:'YYYY-MM-DD', name, emoji, start?:'HH:MM', end?:'HH:MM',
+// met?, kcalPerHour? }. With a start+end it also counts as activity: it shades the heatmap and,
+// when it carries a MET (built-in type) or a kcal/hour (a type the user made), feeds the
+// estimated daily expenditure.
+
+// Built-in activity types. MET values from the Compendium of Physical Activities (general
+// recreational intensity); kcal ≈ MET × bodyweight(kg) × hours.
+export const DEFAULT_EVENT_TYPES = [
+  { key: 'run', name: 'Running', emoji: '🏃', met: 9.8 },
+  { key: 'cycling', name: 'Cycling', emoji: '🚴', met: 8 },
+  { key: 'football', name: 'Football', emoji: '⚽', met: 7 },
+  { key: 'basketball', name: 'Basketball', emoji: '🏀', met: 6.5 },
+  { key: 'racket', name: 'Tennis / padel', emoji: '🎾', met: 7 },
+  { key: 'swimming', name: 'Swimming', emoji: '🏊', met: 7 },
+  { key: 'surf', name: 'Surf', emoji: '🏄', met: 5 },
+  { key: 'hiking', name: 'Hiking', emoji: '🥾', met: 6 },
+  { key: 'climbing', name: 'Climbing', emoji: '🧗', met: 8 },
+  { key: 'skiing', name: 'Skiing / snowboard', emoji: '⛷️', met: 7 },
+  { key: 'dancing', name: 'Dancing', emoji: '💃', met: 5 },
+  { key: 'walk', name: 'Walk', emoji: '🚶', met: 3.5 },
+  { key: 'other', name: 'Other', emoji: '📅', met: 0 },
+]
+
+/** Built-in types plus the user's own (S.eventTypes), each with a stable `key`. */
+export function eventTypes(S) {
+  const custom = ((S && S.eventTypes) || []).map(t => ({ ...t, key: t.id, custom: true }))
+  return [...DEFAULT_EVENT_TYPES, ...custom]
+}
+
+const parse = hhmm => {
+  const [h, m] = String(hhmm || '').split(':').map(Number)
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null
+}
+
+/** Duration in minutes from start/end (wrapping past midnight); 0 when either is missing. */
+export function eventMinutes(ev) {
+  const a = parse(ev && ev.start), b = parse(ev && ev.end)
+  if (a == null || b == null) return 0
+  let mins = b - a
+  if (mins < 0) mins += 1440
+  return mins
+}
+
+/**
+ * Estimated kcal burned by a timed event. Uses the event's MET × bodyweight, or its flat
+ * kcal/hour when it has one (types the user created). 0 without a duration or an intensity.
+ */
+export function eventKcal(ev, bodyweightKg) {
+  const hours = eventMinutes(ev) / 60
+  if (hours <= 0) return 0
+  const met = Number(ev && ev.met)
+  const per = Number(ev && ev.kcalPerHour)
+  const kg = Number(bodyweightKg)
+  if (met > 0 && kg > 0) return Math.round(met * kg * hours)
+  if (per > 0) return Math.round(per * hours)
+  return 0
+}
+
+/** "18:00 – 19:30" or "" when the event has no time. */
+export function eventTimeLabel(ev) {
+  return ev && ev.start && ev.end ? `${ev.start} – ${ev.end}` : ''
+}

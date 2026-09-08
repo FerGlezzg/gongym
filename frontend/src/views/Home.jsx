@@ -3,7 +3,7 @@ import { useStore } from '../store/useStore.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, DAYN, MONTHS_LONG } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { bwSheet, goalSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, dayHubSheet } from '../sheets.jsx'
+import { bwSheet, goalSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, dayHubSheet, weekPresetsSheet } from '../sheets.jsx'
 import { dietOf } from '../lib/nutrition.js'
 import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
@@ -72,6 +72,16 @@ export default function Home() {
     <div className="card">
       {/* The Today row leads: the one action Home is for. Below it, the current month as a
           calendar — trained days shaded, scheduled days dotted, events marked; tap any day. */}
+      {S.weekPresets?.length > 0 && (
+        <div className="row between" style={{ marginBottom: 10, cursor: 'pointer' }} {...tappable(weekPresetsSheet)}>
+          <span className="row small" style={{ gap: 6, minWidth: 0, color: 'var(--label-2)' }}>
+            <Icon name="calendar" style={{ fontSize: 14, color: 'var(--acc)', flex: 'none' }} />
+            <b style={{ color: 'var(--label)' }}>{t('Week schedule')}</b>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {activePreset ? activePreset.name : t('Unsaved schedule')}</span>
+          </span>
+          <Icon name="chevronRight" className="chev" style={{ flex: 'none' }} />
+        </div>
+      )}
       <div className="today-row" style={{ marginTop: 0 }} {...tappable(onToday)}>
         <div className="row" style={{ gap: 9, minWidth: 0 }}>
           <span className="lrow-i" style={{ background: S.active ? 'var(--orange)' : doneToday ? 'var(--surface-3)' : routine ? 'var(--acc)' : 'var(--surface-3)' }}>
@@ -94,13 +104,6 @@ export default function Home() {
           : routine ? <span className="tag acc">{t('Start')}</span>
           : <Icon name="plus" className="chev" />}
       </div>
-      {activePreset && (
-        <div className="ss" style={{ textAlign: 'center', marginTop: 8, cursor: 'pointer' }} {...tappable(() => nav('/plan'))}>
-          <Icon name="calendar" style={{ fontSize: 12, verticalAlign: '-1px', marginRight: 4, color: 'var(--acc)' }} />
-          {activePreset.name}
-        </div>
-      )}
-
       <div className="row between" style={{ marginTop: 14, marginBottom: 2 }}>
         <h2 style={{ margin: 0, textTransform: 'capitalize' }}>{t(MONTHS_LONG[today.getMonth()])}</h2>
         <button className="chip nocap" style={{ padding: '3px 10px', fontSize: 12 }} onClick={() => calendarSheet()}>{t('Open calendar')}</button>

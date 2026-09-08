@@ -4,6 +4,7 @@
 // verifiable by clicking through.
 
 import { LB_TO_KG } from './recovery.js'
+import { eventKcal } from './events.js'
 
 // Defaults for S.diet. Consumers overlay the saved value on top (see dietOf) rather than
 // the store deep-merging, matching how wcOf handles S.wc.
@@ -120,6 +121,9 @@ export function estimatedExpenditure(S, iso, { now = Date.now() } = {}) {
   if (d.workoutKcal) {
     for (const w of S?.workouts || []) {
       if (w && w.d === iso) workout += workoutKcal(w, w.bw || kg)
+    }
+    for (const ev of S?.events || []) {
+      if (ev && ev.d === iso) workout += eventKcal(ev, kg)
     }
   }
   const total = base == null ? (workout || null) : base + workout

@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { DAYN, weekOrder, weekStartOf, uid, exCount, fmtNum } from '../lib/format.js'
+import { DAYN, weekOrder, weekStartOf, uid, exCount, fmtNum, todayISO, isoOf, fmtDate } from '../lib/format.js'
 import { EXDB, EXIDX } from '../lib/exercises.js'
 import { bestWeightFor } from '../lib/history.js'
 import { favIds } from '../lib/favourites.js'
+import { bodyweightKgAt } from '../lib/nutrition.js'
+import { eventKcal, eventTimeLabel } from '../lib/events.js'
 import { t, exerciseNameFor } from '../lib/i18n.js'
-import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet, exerciseDetailSheet, addToRoutineSheet, weekPresetsSheet } from '../sheets.jsx'
+import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet, exerciseDetailSheet, addToRoutineSheet, weekPresetsSheet, eventSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented } from '../components/ui.jsx'
 import { Thumb } from '../components/Media.jsx'
@@ -46,6 +48,16 @@ export default function Plan() {
   const favExercises = favIds(S).map(id => EXIDX[id]).filter(Boolean)
   const activePreset = (S.weekPresets || []).find(p => p.id === S.activeWeekId)
 
+  // Events grouped by day for the next 15 days (Events tab).
+  const upcoming = []
+  const base = new Date(todayISO() + 'T12:00:00')
+  for (let i = 0; i < 15; i++) {
+    const d = new Date(base); d.setDate(base.getDate() + i)
+    const iso = isoOf(d)
+    const evs = (S.events || []).filter(e => e.d === iso)
+    if (evs.length) upcoming.push({ iso, evs })
+  }
+
   return <>
     <div className="hdr">
       <div><h1>{t('Plan')}</h1><div className="sub">{t('Your weekly routine')}</div></div>
@@ -61,7 +73,7 @@ export default function Plan() {
     </button>}
 
     <Segmented className="seg-range" value={tab} onChange={setTab}
-      options={[{ value: 'week', label: t('Week') }, { value: 'routines', label: t('Routines') }, { value: 'exercises', label: t('Exercises') }]} />
+      options={[{ value: 'week', label: t('Week') }, { value: 'routines', label: t('Routines') }, { value: 'exercises', label: t('Exercises') }, { value: 'events', label: t('Events') }]} />
 
     {tab === 'week' && <>
       {!S.routines.length && <>
@@ -151,6 +163,33 @@ export default function Plan() {
         <div className="ico"><Icon name="starFill" /></div>
         {t('No favourite exercises yet.')}<br />{t('Tap the star on an exercise to pin it here.')}
       </div>}
+    </>}
+
+    {tab === 'events' && <>
+      <div className="row between" style={{ marginTop: 4, marginBottom: 10 }}>
+        <h4 className="sec" style={{ margin: 0 }}>{t('Upcoming events')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('next 15 days')}</span></h4>
+        <Button size="sm" variant="tinted" icon="plus" onClick={() => eventSheet()}>{t('New')}</Button>
+      </div>
+      {upcoming.length ? upcoming.map(({ iso, evs }) => (
+        <div key={iso} style={{ marginBottom: 12 }}>
+          <div className="small dim" style={{ marginBottom: 4, textTransform: 'capitalize' }}>{fmtDate(iso, true)}</div>
+          <div className="list">{evs.map(e => {
+            const kcal = eventKcal(e, bodyweightKgAt(S, iso))
+            return <div key={e.id} className="item" {...tappable(() => eventSheet(iso, e))}>
+              <span className="lrow-i" style={{ fontSize: 18 }}>{e.emoji || '📅'}</span>
+              <div className="grow" style={{ minWidth: 0 }}>
+                <div className="tt">{e.name}</div>
+                <div className="ss">{[eventTimeLabel(e), kcal > 0 ? '≈ ' + fmtNum(kcal) + ' ' + t('kcal') : ''].filter(Boolean).join(' · ') || t('Event')}</div>
+              </div>
+              <Icon name="chevronRight" className="chev" />
+            </div>
+          })}</div>
+        </div>
+      )) : <div className="empty">
+        <div className="ico"><Icon name="flag" /></div>
+        {t('No events in the next 15 days.')}<br />{t('Add a race, a match, anything worth marking.')}
+      </div>}
+      <Button icon="plus" onClick={() => eventSheet()}>{t('New event')}</Button>
     </>}
   </>
 }

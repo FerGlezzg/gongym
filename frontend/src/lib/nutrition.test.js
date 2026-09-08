@@ -133,6 +133,12 @@ describe('estimatedExpenditure', () => {
   it('is null when there is nothing to go on', () => {
     expect(estimatedExpenditure({ diet: {}, workouts: [], nutrition: [] }, '2026-01-15', { now }).total).toBe(null)
   })
+  it('folds a timed event into the day (under the same workoutKcal toggle)', () => {
+    const withEvent = { ...base, events: [{ d: '2026-01-20', start: '10:00', end: '12:00', met: 5 }] }
+    // 5 MET · 80 kg · 2 h = 800, on top of the TDEE 2448
+    expect(estimatedExpenditure(withEvent, '2026-01-20', { now }).total).toBe(2448 + 800)
+    expect(estimatedExpenditure({ ...withEvent, diet: { ...base.diet, workoutKcal: false } }, '2026-01-20', { now }).total).toBe(2448)
+  })
 })
 
 describe('daySeries', () => {

@@ -37,7 +37,8 @@ import { isFav, toggleFav, sortFavouritesFirst } from './lib/favourites.js'
 import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
-import { dietOf, scaleFood, entryAmountLabel, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
+import { dietOf, scaleFood, entryAmountLabel, bodyweightKgAt, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
+import { eventTypes, eventMinutes, eventKcal, eventTimeLabel } from './lib/events.js'
 import { loadFoods, foodsReady, foodName, searchFoods, CATEGORY_LABEL, FOOD_CATEGORIES } from './lib/foods.js'
 import { lookupBarcode } from './lib/off.js'
 import { scanBarcode, importCodeFromImage } from './lib/scan.js'
@@ -1577,7 +1578,7 @@ function DayHub({ iso, close }) {
       {workouts.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { close(); workoutDetailSheet(w) }} />)}
       {events.map(e => <div key={e.id} className="item" {...tappable(() => { close(); eventSheet(iso, e) })}>
         <span className="lrow-i" style={{ fontSize: 18 }}>{e.emoji || '📅'}</span>
-        <div className="grow"><div className="tt">{e.name}</div><div className="ss">{t('Event')}</div></div>
+        <div className="grow"><div className="tt">{e.name}</div><div className="ss">{eventTimeLabel(e) || t('Event')}</div></div>
         <Icon name="chevronRight" className="chev" />
       </div>)}
     </div>}
@@ -1592,33 +1593,107 @@ function DayHub({ iso, close }) {
 export const dayHubSheet = iso => ui().openSheet(close => <DayHub iso={iso} close={close} />)
 
 /* ============================ custom event ============================ */
-// A marker on the calendar for something that is not a logged workout — a race, a match,
-// a night out. Name + emoji, pinned to a date, stored in S.events.
-export const EVENT_EMOJI = [
-  '⚽', '🏀', '🎾', '🏐', '🏈', '⚾', '🏃', '🚴', '🏊', '🥊', '🧗', '⛷️',
-  '🏆', '🥇', '🎯', '🎳', '🥾', '🏌️', '🍻', '🎉', '🎂', '✈️', '🎓', '📅',
-]
+// A calendar event — a race, a match, a surf session. Its activity type carries an emoji and
+// an intensity (MET for built-ins, kcal/hour for ones the user made); with a start+end the
+// event shades the heatmap and feeds the day's estimated expenditure. Stored in S.events.
+const EVENT_TYPE_EMOJI = ['⚽', '🏀', '🎾', '🏐', '🏈', '🏓', '🏃', '🚴', '🏊', '🏄', '🥊', '🧗', '⛷️', '🛹', '🚣', '🤸', '🧘', '💃', '🥾', '⛳', '🎳', '📅']
+const timeLike = v => /^\d{1,2}:\d{2}$/.test(v || '')
+
 function EventSheet({ iso, event, close }) {
+  const st = useStore(s => s.S)
+  const bwKg = bodyweightKgAt(st, iso || todayISO())
+  const types = eventTypes(st)
+  const seedType = event
+    ? types.find(x => x.emoji === event.emoji && (x.met === event.met || x.kcalPerHour === event.kcalPerHour)) || null
+    : null
+
+  const [mode, setMode] = useState(null)                       // null | 'newType'
+  const [date, setDate] = useState(event?.d || iso || todayISO())
+  const [typeKey, setTypeKey] = useState(seedType?.key || (event ? null : 'run'))
   const [name, setName] = useState(event?.name || '')
   const [emoji, setEmoji] = useState(event?.emoji || '📅')
+  const [met, setMet] = useState(event?.met ?? null)
+  const [kph, setKph] = useState(event?.kcalPerHour ?? null)
+  const [start, setStart] = useState(event?.start || '')
+  const [end, setEnd] = useState(event?.end || '')
+  // new-type form
+  const [tName, setTName] = useState('')
+  const [tEmoji, setTEmoji] = useState('📅')
+  const [tKph, setTKph] = useState(null)
+
+  const pickType = ty => {
+    setTypeKey(ty.key); setEmoji(ty.emoji)
+    setMet(ty.met ?? null); setKph(ty.kcalPerHour ?? null)
+    if (!name.trim() && ty.key !== 'other') setName(ty.custom ? ty.name : t(ty.name))
+  }
+  const kcal = eventKcal({ met, kcalPerHour: kph, start, end }, bwKg)
+
   const save = () => {
     const nm = name.trim()
     if (!nm) { toast(t('Give it a name')); return }
+    if ((start && !timeLike(start)) || (end && !timeLike(end)) || (!!start !== !!end)) { toast(t('Enter both a start and an end time')); return }
+    const row = {
+      d: date, name: nm, emoji,
+      start: start || null, end: end || null,
+      met: met > 0 ? met : null, kcalPerHour: kph > 0 ? kph : null,
+    }
     update(s => {
       s.events = s.events || []
-      if (event) { const e = s.events.find(x => x.id === event.id); if (e) { e.name = nm; e.emoji = emoji } }
-      else s.events.push({ id: uid(), d: iso, name: nm, emoji })
+      if (event) { const e = s.events.find(x => x.id === event.id); if (e) Object.assign(e, row) }
+      else s.events.push({ id: uid(), ...row })
     })
     close(); toast(event ? t('Saved') : t('Event added'))
   }
   const del = () => { update(s => { s.events = (s.events || []).filter(x => x.id !== event.id) }); close(); toast(t('Removed')) }
+  const saveType = () => {
+    const nm = tName.trim()
+    if (!nm) { toast(t('Give it a name')); return }
+    const ty = { id: uid(), name: nm, emoji: tEmoji, kcalPerHour: tKph > 0 ? Math.round(tKph) : 0 }
+    update(s => { (s.eventTypes = s.eventTypes || []).push(ty) })
+    setMode(null)
+    pickType({ ...ty, key: ty.id, custom: true })
+  }
+
+  if (mode === 'newType') return <>
+    <h3>{t('New activity type')}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>{t('For activities not in the list. The kcal/hour feeds the day’s expenditure.')}</div>
+    <input className="input" placeholder={t('e.g. Surf')} value={tName} onChange={e => setTName(e.target.value)} />
+    <div className="chips" style={{ margin: '12px 0', gap: 6 }}>
+      {EVENT_TYPE_EMOJI.map(x => <button key={x} className={'chip' + (tEmoji === x ? ' on' : '')} style={{ fontSize: 18, padding: '4px 8px' }} onClick={() => setTEmoji(x)}>{x}</button>)}
+    </div>
+    <div className="row cfgrow"><Stepper label={t('Calories per hour')} value={tKph || 0} step={50} decimal={false} onChange={setTKph} /></div>
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={saveType}>{t('Create')}</Button>
+    <div style={{ height: 8 }} /><Button variant="ghost" className="dim" onClick={() => setMode(null)}>{t('Cancel')}</Button>
+  </>
+
   return <>
     <h3>{event ? t('Edit event') : t('Add an event')}</h3>
-    <div className="muted small" style={{ marginBottom: 12 }}>{fmtDate(iso, true)}</div>
-    <input className="input" placeholder={t('e.g. 10K race')} value={name} onChange={e => setName(e.target.value)} />
-    <div className="chips" style={{ margin: '12px 0', gap: 6 }}>
-      {EVENT_EMOJI.map(x => <button key={x} className={'chip' + (emoji === x ? ' on' : '')} style={{ fontSize: 18, padding: '4px 8px' }} onClick={() => setEmoji(x)}>{x}</button>)}
+    {iso
+      ? <div className="muted small" style={{ marginBottom: 12 }}>{fmtDate(date, true)}</div>
+      : <Row icon="calendar" title={t('Date')}><input type="date" className="timef" value={date} onChange={e => setDate(e.target.value)} /></Row>}
+
+    <input className="input" placeholder={t('e.g. 10K race')} value={name} onChange={e => setName(e.target.value)} style={{ marginTop: iso ? 0 : 10 }} />
+
+    <h4 className="sec" style={{ marginTop: 14 }}>{t('Activity')}</h4>
+    <div className="chips" style={{ gap: 6 }}>
+      {types.map(ty => <button key={ty.key} className={'chip nocap' + (typeKey === ty.key ? ' on' : '')} onClick={() => pickType(ty)}>
+        <span style={{ fontSize: 15, marginRight: 4 }}>{ty.emoji}</span>{ty.custom ? ty.name : t(ty.name)}
+      </button>)}
+      <button className="chip nocap" onClick={() => setMode('newType')}><Icon name="plus" style={{ fontSize: 12 }} /> {t('New type')}</button>
     </div>
+
+    <h4 className="sec" style={{ marginTop: 14 }}>{t('Time')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('optional')}</span></h4>
+    <div className="row" style={{ gap: 8 }}>
+      <input type="time" className="timef" style={{ flex: 1 }} value={start} onChange={e => setStart(e.target.value)} />
+      <span className="dim">–</span>
+      <input type="time" className="timef" style={{ flex: 1 }} value={end} onChange={e => setEnd(e.target.value)} />
+    </div>
+    {kcal > 0 && <div className="small dim" style={{ marginTop: 8 }}>
+      {eventMinutes({ start, end })} min · ≈ {fmtNum(kcal)} {t('kcal')} — {t('added to the day’s expenditure')}
+    </div>}
+
+    <div style={{ height: 16 }} />
     <Button variant="primary" onClick={save}>{event ? t('Save') : t('Add')}</Button>
     {event && <><div style={{ height: 8 }} /><Button variant="danger" icon="trash" onClick={del}>{t('Delete')}</Button></>}
   </>

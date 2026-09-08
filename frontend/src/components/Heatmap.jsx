@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { fmtVol, isoOf, todayISO, MONTHS, DAYS, weekOrder, weekStartOf, weekDayOffset } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { tappable } from '../lib/use-sheet-keyboard.js'
+import { eventMinutes } from '../lib/events.js'
 
 const HeatLegend = () => (
   <div className="hm-legend">{t('Less time')} <div className="hm-c l0" /><div className="hm-c l1" /><div className="hm-c l2" /><div className="hm-c l3" /><div className="hm-c l4" /> {t('More time')}</div>
@@ -21,6 +22,13 @@ export default function Heatmap({ S, onDay, view, dots, events }) {
     a.n++; a.vol += w.vol || 0
     a.min += Math.max(0, Math.round(((w.end || w.start) - w.start) / 60000))
   })
+  // Timed events count as activity too — they shade the cell like a workout does.
+  ;(S.events || []).forEach(e => {
+    const min = eventMinutes(e)
+    if (!min) return
+    const a = agg[e.d] = agg[e.d] || { n: 0, vol: 0, min: 0 }
+    a.min += min
+  })
   const mins = Object.values(agg).map(a => a.min).filter(v => v > 0).sort((a, b) => a - b)
   const q = p => (mins.length ? mins[Math.min(mins.length - 1, Math.floor(p * mins.length))] : 0)
   const t1 = q(0.25), t2 = q(0.5), t3 = q(0.75)
@@ -38,13 +46,15 @@ export default function Heatmap({ S, onDay, view, dots, events }) {
     for (let d = 1; d <= daysIn; d++) {
       const key = `${y}-${pad(mo + 1)}-${pad(d)}`
       const a = agg[key]
-      const dot = !a && dots ? dots(key) : null      // trained days are shaded, no dot
+      const trained = !!(a && a.n > 0)
+      const dot = !a && dots ? dots(key) : null      // shaded days carry no dot
       const ev = events ? events(key) : null
       const emoji = typeof ev === 'string' ? ev : ev?.emoji || null
-      const cls = 'hm-md l' + level(a) + (key === todayISO() ? ' today' : '') + (key > todayISO() ? ' future' : '') + (a ? ' trained' : '')
+      const cls = 'hm-md l' + level(a) + (key === todayISO() ? ' today' : '') + (key > todayISO() ? ' future' : '') + (trained ? ' trained' : '')
       cells.push(<div key={d} className={cls}
         title={key
-          + (a ? ` · ${t(a.n === 1 ? '{0} workout' : '{0} workouts', a.n)} · ${a.min} min · ${fmtVol(a.vol, S.unit)}` : '')
+          + (trained ? ` · ${t(a.n === 1 ? '{0} workout' : '{0} workouts', a.n)} · ${fmtVol(a.vol, S.unit)}` : '')
+          + (a && a.min ? ` · ${a.min} min` : '')
           + (ev?.name ? ` · ${ev.name}` : '')}
         {...tappable(onDay ? () => onDay(key) : undefined)}>
         <span>{d}</span>
@@ -79,7 +89,7 @@ export default function Heatmap({ S, onDay, view, dots, events }) {
       const a = agg[key]
       const cls = 'hm-c l' + level(a) + (key === todayISO() ? ' today' : '') + (day > today ? ' future' : '')
       cells.push(<div key={d} className={cls}
-        title={key + (a ? ` · ${t(a.n === 1 ? '{0} workout' : '{0} workouts', a.n)} · ${a.min} min · ${fmtVol(a.vol, S.unit)}` : '')}
+        title={key + (a && a.n ? ` · ${t(a.n === 1 ? '{0} workout' : '{0} workouts', a.n)} · ${fmtVol(a.vol, S.unit)}` : '') + (a && a.min ? ` · ${a.min} min` : '')}
         {...tappable(a ? () => onDay(key) : undefined)} />)
     }
     cols.push(<div key={wk} className="hm-col">{cells}</div>)
