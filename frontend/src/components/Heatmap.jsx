@@ -1,10 +1,15 @@
 import { useEffect, useRef } from 'react'
-import { fmtVol, isoOf, todayISO, MONTHS } from '../lib/format.js'
+import { fmtVol, isoOf, todayISO, MONTHS, DAYS, weekOrder, weekStartOf, weekDayOffset } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 
-// GitHub-style activity heatmap, shaded by time trained per day.
-export default function Heatmap({ S, onDay }) {
+const HeatLegend = () => (
+  <div className="hm-legend">{t('Less time')} <div className="hm-c l0" /><div className="hm-c l1" /><div className="hm-c l2" /><div className="hm-c l3" /><div className="hm-c l4" /> {t('More time')}</div>
+)
+
+// Activity heatmap, shaded by time trained per day. `view="month"` renders the current
+// month as a calendar grid (Home); the default is the GitHub-style trailing 12 months (Stats).
+export default function Heatmap({ S, onDay, view }) {
   const wrapRef = useRef(null)
   useEffect(() => { if (wrapRef.current) wrapRef.current.scrollLeft = wrapRef.current.scrollWidth }, [])
 
@@ -18,6 +23,32 @@ export default function Heatmap({ S, onDay }) {
   const q = p => (mins.length ? mins[Math.min(mins.length - 1, Math.floor(p * mins.length))] : 0)
   const t1 = q(0.25), t2 = q(0.5), t3 = q(0.75)
   const level = a => !a ? 0 : !a.min ? 1 : a.min >= t3 ? 4 : a.min >= t2 ? 3 : a.min >= t1 ? 2 : 1
+
+  if (view === 'month') {
+    const now = new Date(); now.setHours(12, 0, 0, 0)
+    const y = now.getFullYear(), mo = now.getMonth()
+    const ws = weekStartOf(S)
+    const offset = weekDayOffset(new Date(y, mo, 1).getDay(), ws)
+    const daysIn = new Date(y, mo + 1, 0).getDate()
+    const pad = n => String(n).padStart(2, '0')
+    const cells = []
+    for (let i = 0; i < offset; i++) cells.push(<div key={'e' + i} />)
+    for (let d = 1; d <= daysIn; d++) {
+      const key = `${y}-${pad(mo + 1)}-${pad(d)}`
+      const a = agg[key]
+      const cls = 'hm-md l' + level(a) + (key === todayISO() ? ' today' : '') + (key > todayISO() ? ' future' : '') + (a ? ' trained' : '')
+      cells.push(<div key={d} className={cls}
+        title={key + (a ? ` · ${t(a.n === 1 ? '{0} workout' : '{0} workouts', a.n)} · ${a.min} min · ${fmtVol(a.vol, S.unit)}` : '')}
+        {...tappable(a ? () => onDay(key) : undefined)}>{d}</div>)
+    }
+    return <>
+      <div className="hm-month">
+        {weekOrder(ws).map(wd => <div key={wd} className="hm-h">{t(DAYS[wd])}</div>)}
+        {cells}
+      </div>
+      <HeatLegend />
+    </>
+  }
 
   const today = new Date(); today.setHours(12, 0, 0, 0)
   const end = new Date(today); end.setDate(today.getDate() - ((today.getDay() + 6) % 7))
@@ -52,6 +83,6 @@ export default function Heatmap({ S, onDay }) {
         <div className="hm-grid">{cols}</div>
       </div>
     </div>
-    <div className="hm-legend">{t('Less time')} <div className="hm-c l0" /><div className="hm-c l1" /><div className="hm-c l2" /><div className="hm-c l3" /><div className="hm-c l4" /> {t('More time')}</div>
+    <HeatLegend />
   </>
 }
