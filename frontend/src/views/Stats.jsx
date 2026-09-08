@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { EXIDX, matchExercise } from '../lib/exercises.js'
@@ -286,6 +286,8 @@ function EffortCard({ S }) {
 // balance between them over time. All of it is derived in lib/nutrition.js.
 function DietStats({ S }) {
   const [range, setRange] = useState(90)
+  const [page, setPage] = useState(0)
+  const railRef = useRef(null)
   const now = Date.now()
   const d = dietOf(S)
   const to = todayISO()
@@ -304,6 +306,18 @@ function DietStats({ S }) {
   const recent = [...series].reverse().slice(0, 7)
   const macros = d.macroGoal
 
+  // Intake / burn / balance as a swipeable carousel — one chart per view, dots + a tap
+  // control on top. Each slide is presented the same way (title, range, line).
+  const slides = [
+    { key: 'intake', label: t('Intake'), title: t('Calorie intake'), sub: d.kcalGoal ? t('goal {0}', fmtNum(d.kcalGoal)) : null, pts: intakePts, color: 'var(--blue)', goal: d.kcalGoal },
+    { key: 'burn', label: t('Burn'), title: t('Calorie burn'), sub: wk.expenditure != null ? t('avg {0}', fmtNum(wk.expenditure)) : null, pts: expPts, color: 'var(--yellow)' },
+  ]
+  if (balPts.length > 1) slides.push({ key: 'balance', label: t('Balance'), title: t('Daily balance'), sub: t('intake minus burn'), pts: balPts, color: 'var(--acc)' })
+  const goPage = i => { setPage(i); railRef.current?.scrollTo({ left: i * railRef.current.clientWidth, behavior: 'smooth' }) }
+  const onRail = () => { const r = railRef.current; if (r) { const i = Math.round(r.scrollLeft / r.clientWidth); if (i !== page) setPage(i) } }
+  // The balance slide comes and goes with the range; keep the pager in bounds.
+  useEffect(() => { if (page > slides.length - 1) goPage(slides.length - 1) }, [slides.length])
+
   return <>
     <div className="tiles">
       <div className="tile"><div className="l"><Icon name="apple" />{t('Avg intake 7d')}</div><div className="v" style={{ fontSize: 22 }}>{wk.intake == null ? '—' : fmtNum(wk.intake)}</div></div>
@@ -313,20 +327,18 @@ function DietStats({ S }) {
     </div>
 
     <div className="card">
-      <h2>{t('Calorie intake')} {d.kcalGoal ? <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('goal {0}', fmtNum(d.kcalGoal))}</span> : null}</h2>
+      <Segmented className="seg-range" value={slides[page]?.key} onChange={k => goPage(slides.findIndex(s => s.key === k))}
+        options={slides.map(s => ({ value: s.key, label: s.label }))} />
       <Segmented className="seg-range" value={range} onChange={setRange}
         options={[{ value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 365, label: '1Y' }, { value: 0, label: t('All') }]} />
-      <div className="chart"><LineChart points={intakePts} h={160} unit={kcal} goal={d.kcalGoal} color="var(--blue)" /></div>
+      <div className="crsl" ref={railRef} onScroll={onRail}>
+        {slides.map(s => <div key={s.key} className="crsl-slide">
+          <h2 style={{ marginTop: 0 }}>{s.title}{s.sub ? <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}> · {s.sub}</span> : null}</h2>
+          <div className="chart"><LineChart points={s.pts} h={160} unit={kcal} goal={s.goal} color={s.color} /></div>
+        </div>)}
+      </div>
+      {slides.length > 1 && <div className="ci-dots">{slides.map((s, i) => <span key={s.key} className={'ci-dot' + (i === page ? ' on' : '')} />)}</div>}
     </div>
-
-    {expPts.length > 1 && <div className="card">
-      <h2>{t('Estimated expenditure')}</h2>
-      <div className="chart"><LineChart points={expPts} h={150} unit={kcal} color="var(--yellow)" /></div>
-      {balPts.length > 1 && <>
-        <h4 className="sec" style={{ marginTop: 12 }}>{t('Daily balance')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('intake minus burn')}</span></h4>
-        <div className="chart"><LineChart points={balPts} h={130} unit={kcal} color="var(--acc)" /></div>
-      </>}
-    </div>}
 
     {macros && <div className="card">
       <h2>{t('Average macros')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('last 7 days')}</span></h2>

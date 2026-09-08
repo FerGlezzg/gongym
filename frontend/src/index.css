@@ -936,6 +936,15 @@ h4.sec{
 
 /* --------------------------------------------------------------- charts -- */
 .chart{width:100%;overflow:hidden}
+
+/* generic in-card carousel: one slide per viewport, scroll-snap, no JS pager.
+   The rail bleeds to the card edges; each slide re-adds the card's inner padding. */
+.crsl{
+  display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -16px;
+}
+.crsl::-webkit-scrollbar{display:none}
+.crsl-slide{scroll-snap-align:center;flex:0 0 100%;box-sizing:border-box;padding:0 16px}
 .chart svg{display:block;width:100%;height:auto}
 .chart-i{position:relative;touch-action:pan-y}
 /* left/top are written by LineChart after measuring the label, so it can never be

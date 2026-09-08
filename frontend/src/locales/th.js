@@ -1402,4 +1402,8 @@ export default {
   'Monthly': 'Monthly',
   'Every 3 months': 'Every 3 months',
   'Yearly': 'Yearly',
+  'Intake': 'Intake',
+  'Burn': 'Burn',
+  'Calorie burn': 'Calorie burn',
+  'avg {0}': 'avg {0}',
 }

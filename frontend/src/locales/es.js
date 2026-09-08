@@ -1391,4 +1391,8 @@ export default {
   'Monthly': 'Mensual',
   'Every 3 months': 'Cada 3 meses',
   'Yearly': 'Anual',
+  'Intake': 'Ingesta',
+  'Burn': 'Gasto',
+  'Calorie burn': 'Gasto de calorías',
+  'avg {0}': 'media {0}',
 }
