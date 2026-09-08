@@ -1309,4 +1309,7 @@ export default {
   'Snacks': 'Aperitivos',
   'Scan barcode': 'Escanear código',
   'No barcode found in that photo': 'No se encontró ningún código en la foto',
+  'All exercises': 'Todos los ejercicios',
+  'No favourite exercises yet.': 'Aún no tienes ejercicios favoritos.',
+  'Tap the star on an exercise to pin it here.': 'Toca la estrella de un ejercicio para fijarlo aquí.',
 }

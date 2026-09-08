@@ -1329,4 +1329,7 @@ export default {
   'Snacks': 'Snacks',
   'Scan barcode': 'Scan barcode',
   'No barcode found in that photo': 'No barcode found in that photo',
+  'All exercises': 'All exercises',
+  'No favourite exercises yet.': 'No favourite exercises yet.',
+  'Tap the star on an exercise to pin it here.': 'Tap the star on an exercise to pin it here.',
 }

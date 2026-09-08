@@ -1,11 +1,15 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
-import { DAYN, weekOrder, weekStartOf, uid, exCount } from '../lib/format.js'
-import { EXDB } from '../lib/exercises.js'
-import { t } from '../lib/i18n.js'
-import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet } from '../sheets.jsx'
+import { DAYN, weekOrder, weekStartOf, uid, exCount, fmtNum } from '../lib/format.js'
+import { EXDB, EXIDX } from '../lib/exercises.js'
+import { bestWeightFor } from '../lib/history.js'
+import { favIds } from '../lib/favourites.js'
+import { t, exerciseNameFor } from '../lib/i18n.js'
+import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet, exerciseDetailSheet, addToRoutineSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { Button } from '../components/ui.jsx'
+import { Button, Segmented } from '../components/ui.jsx'
+import { Thumb } from '../components/Media.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
 import { DEMO } from '../lib/demo.js'
@@ -19,6 +23,7 @@ export default function Plan() {
   const config = useStore(s => s.config)
   const coachMode = useStore(s => s.coachLocal?.mode)
   const user = useStore(s => s.user)
+  const [tab, setTab] = useState('week')   // 'week' | 'routines' | 'exercises'
 
   /* The Coach's only entry point in the app. Its screens have existed since the UI landed and
      nothing linked to them, so the feature was reachable only by typing the URL — enabled,
@@ -38,6 +43,8 @@ export default function Plan() {
     if (next.length) s.week[d] = next; else delete s.week[d]
   })
 
+  const favExercises = favIds(S).map(id => EXIDX[id]).filter(Boolean)
+
   return <>
     <div className="hdr">
       <div><h1>{t('Plan')}</h1><div className="sub">{t('Your weekly routine')}</div></div>
@@ -52,7 +59,15 @@ export default function Plan() {
       <Icon name="chevronRight" className="coach-cta-chev" />
     </button>}
 
-    <div className="cols"><div>
+    <Segmented className="seg-range" value={tab} onChange={setTab}
+      options={[{ value: 'week', label: t('Week') }, { value: 'routines', label: t('Routines') }, { value: 'exercises', label: t('Exercises') }]} />
+
+    {tab === 'week' && <>
+      {!S.routines.length && <>
+        <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Create one or load the starter plan.')}</div>
+        <Button icon="sparkles" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>
+        <div style={{ height: 16 }} />
+      </>}
       <h4 className="sec">{t('Week schedule')}</h4>
       <div className="list" style={{ display: 'flex', flexDirection: 'column' }}>
         {weekOrder(weekStartOf(S)).map(d => {
@@ -79,8 +94,10 @@ export default function Plan() {
           </div>
         })}
       </div>
-    </div><div>
-      <div className="row between" style={{ marginTop: 22, marginBottom: 10 }}>
+    </>}
+
+    {tab === 'routines' && <>
+      <div className="row between" style={{ marginTop: 4, marginBottom: 10 }}>
         <h4 className="sec" style={{ margin: 0 }}>{t('Routines')}</h4>
         <Button size="sm" variant="tinted" icon="plus" onClick={addRoutine}>{t('New')}</Button>
       </div>
@@ -91,14 +108,33 @@ export default function Plan() {
         <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Create one or load the starter plan.')}</div>
         <Button icon="sparkles" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>
       </>}
-      {/* The exercise library lost its own tab (that slot is Diet now); this is the way in. */}
-      <div className="list" style={{ marginTop: 12 }}>
+    </>}
+
+    {tab === 'exercises' && <>
+      <div className="list" style={{ marginTop: 4 }}>
         <div className="item" {...tappable(() => nav('/library'))}>
           <span className="lrow-i"><Icon name="list" /></span>
-          <div className="grow"><div className="tt">{t('Browse exercises')}</div><div className="ss">{t('{0} exercises with animations', EXDB.length)}</div></div>
+          <div className="grow"><div className="tt">{t('All exercises')}</div><div className="ss">{t('{0} exercises with animations', EXDB.length)}</div></div>
           <Icon name="chevronRight" className="chev" />
         </div>
       </div>
-    </div></div>
+
+      <h4 className="sec" style={{ marginTop: 18 }}>{t('Favourites')}</h4>
+      {favExercises.length ? <div className="list">
+        {favExercises.map(e => {
+          const best = bestWeightFor(S, e.id)
+          return <div key={e.id} className="item" {...tappable(() => exerciseDetailSheet(e))}>
+            <Thumb ex={e} />
+            <div className="grow"><div className="tt capitalize"><Icon name="starFill" className="fav-star" />{exerciseNameFor(e)}</div>
+              <div className="ss capitalize">{t(e.tg || e.bp)} · {t(e.eq)}</div></div>
+            {best > 0 && <span className="tag acc">{fmtNum(best)}</span>}
+            <Button size="sm" variant="tinted" icon="plus" onClick={ev => { ev.stopPropagation(); addToRoutineSheet(e) }}>{t('Plan')}</Button>
+          </div>
+        })}
+      </div> : <div className="empty">
+        <div className="ico"><Icon name="starFill" /></div>
+        {t('No favourite exercises yet.')}<br />{t('Tap the star on an exercise to pin it here.')}
+      </div>}
+    </>}
   </>
 }
