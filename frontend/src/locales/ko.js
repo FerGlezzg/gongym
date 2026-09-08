@@ -1110,6 +1110,8 @@ export default {
   'Open progression settings': '진행 설정 열기',
   'Hevy is rate-limiting requests — wait a minute and try again': 'Hevy가 요청을 제한하고 있습니다 — 잠시 기다렸다가 다시 시도하세요',
   // --- log a past workout ---
+  "Add at least one exercise": "운동을 하나 이상 추가하세요",
+  "Pick a day and a routine, tweak the sets, save. No timers.": "날짜와 루틴을 고르고 세트를 다듬은 뒤 저장하세요. 타이머 없음.",
   'Log a past workout': '지난 운동 기록',
   'Logged on the usual workout screen, without timers.': '평소 운동 화면에서 기록하며 타이머만 없습니다.',
   'Date': '날짜',
@@ -1351,6 +1353,10 @@ export default {
   'Event': 'Event',
   'Event added': 'Event added',
   'Log a workout done this day': 'Log a workout done this day',
+  "Previous month": "이전 달",
+  "Next month": "다음 달",
+  "Previous year": "이전 연도",
+  "Next year": "다음 연도",
   'Open calendar': 'Open calendar',
   'Plan a routine for this day': 'Plan a routine for this day',
   'e.g. 10K race': 'e.g. 10K race',
@@ -1406,5 +1412,7 @@ export default {
   'All day': 'All day',
   'Starts at {0}': 'Starts at {0}',
   'Turn on notifications in Settings to get event reminders.': 'Turn on notifications in Settings to get event reminders.',
+  "Removes every later occurrence.": "이후의 모든 반복을 삭제합니다.",
+  "Rewrites this and every later occurrence.": "이 항목과 이후의 모든 반복을 다시 만듭니다.",
   'Set a start time to be notified before the event.': 'Set a start time to be notified before the event.',
 }

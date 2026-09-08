@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_EVENT_TYPES, eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, RECUR, eventNotifTimes } from './events.js'
+import { DEFAULT_EVENT_TYPES, eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, RECUR, eventNotifTimes } from './events.js'
 
 describe('DEFAULT_EVENT_TYPES', () => {
   it('includes surf and a zero-MET fallback', () => {
@@ -71,6 +71,48 @@ describe('expandRecurrence', () => {
   })
   it('clamps a month-end day to the last day of a shorter month', () => {
     expect(expandRecurrence('2026-01-31', 'monthly').slice(0, 3)).toEqual(['2026-01-31', '2026-02-28', '2026-03-31'])
+  })
+})
+
+describe('seriesFrequency', () => {
+  const weekly = expandRecurrence('2026-09-15', 'weekly').map((d, i) => ({ id: 'w' + i, d, series: 'S' }))
+  it('reads the cadence back from the sibling spacing', () => {
+    expect(seriesFrequency(weekly, weekly[0])).toBe('weekly')
+    const monthly = expandRecurrence('2026-01-10', 'monthly').map((d, i) => ({ id: 'm' + i, d, series: 'M' }))
+    expect(seriesFrequency(monthly, monthly[1])).toBe('monthly')
+  })
+  it('is none for a standalone event or the last of a series', () => {
+    expect(seriesFrequency(weekly, { id: 'x', d: '2026-09-15' })).toBe('none')
+    expect(seriesFrequency(weekly, weekly[weekly.length - 1])).toBe('none')
+  })
+})
+
+describe('planEventEdit', () => {
+  const weekly = expandRecurrence('2026-09-15', 'weekly').map((d, i) => ({ id: 'w' + i, d, series: 'S' }))
+  it('does nothing to the series when the frequency is unchanged', () => {
+    const plan = planEventEdit(weekly, weekly[1], { date: '2026-09-22', freq: 'weekly', prevFreq: 'weekly', seriesId: 'S' })
+    expect(plan.removeIds).toEqual([])
+    expect(plan.forwardDates).toEqual([])
+    expect(plan.series).toBe('S')
+  })
+  it('drops later siblings and regenerates them when the frequency changes', () => {
+    const plan = planEventEdit(weekly, weekly[1], { date: '2026-09-22', freq: 'biweekly', prevFreq: 'weekly', seriesId: 'S' })
+    expect(plan.removeIds).toEqual(weekly.slice(2).map(e => e.id))
+    expect(plan.forwardDates.slice(0, 2)).toEqual(['2026-10-06', '2026-10-20'])
+    expect(plan.series).toBe('S')
+  })
+  it('turning repeat off removes later siblings and leaves a standalone event', () => {
+    const plan = planEventEdit(weekly, weekly[1], { date: '2026-09-22', freq: 'none', prevFreq: 'weekly', seriesId: 'S' })
+    expect(plan.removeIds).toEqual(weekly.slice(2).map(e => e.id))
+    expect(plan.forwardDates).toEqual([])
+    expect(plan.series).toBe('S')     // kept — earlier siblings still reference it
+  })
+  it('adds a series to a standalone event that gains a repeat', () => {
+    const solo = { id: 'a', d: '2026-09-15' }
+    const plan = planEventEdit([solo], solo, { date: '2026-09-15', freq: 'weekly', prevFreq: 'none', seriesId: 'NEW' })
+    expect(plan.removeIds).toEqual([])
+    expect(plan.series).toBe('NEW')
+    expect(plan.forwardDates).toHaveLength(RECUR.weekly.count - 1)
   })
 })
 

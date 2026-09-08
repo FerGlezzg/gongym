@@ -1110,6 +1110,8 @@ export default {
   'Open progression settings': 'प्रगति सेटिंग्स खोलें',
   'Hevy is rate-limiting requests — wait a minute and try again': 'Hevy अनुरोधों को सीमित कर रहा है — एक मिनट रुकें और फिर से कोशिश करें',
   // --- log a past workout ---
+  "Add at least one exercise": "कम से कम एक व्यायाम जोड़ें",
+  "Pick a day and a routine, tweak the sets, save. No timers.": "एक दिन और रूटीन चुनें, सेट ठीक करें, सेव करें। कोई टाइमर नहीं।",
   'Log a past workout': 'पिछला वर्कआउट दर्ज करें',
   'Logged on the usual workout screen, without timers.': 'सामान्य वर्कआउट स्क्रीन पर दर्ज होता है, बस टाइमर के बिना।',
   'Date': 'तारीख',
@@ -1351,6 +1353,10 @@ export default {
   'Event': 'Event',
   'Event added': 'Event added',
   'Log a workout done this day': 'Log a workout done this day',
+  "Previous month": "पिछला महीना",
+  "Next month": "अगला महीना",
+  "Previous year": "पिछला साल",
+  "Next year": "अगला साल",
   'Open calendar': 'Open calendar',
   'Plan a routine for this day': 'Plan a routine for this day',
   'e.g. 10K race': 'e.g. 10K race',
@@ -1406,5 +1412,7 @@ export default {
   'All day': 'All day',
   'Starts at {0}': 'Starts at {0}',
   'Turn on notifications in Settings to get event reminders.': 'Turn on notifications in Settings to get event reminders.',
+  "Removes every later occurrence.": "बाद की हर पुनरावृत्ति हटा देता है।",
+  "Rewrites this and every later occurrence.": "इसे और बाद की हर पुनरावृत्ति को फिर से लिखता है।",
   'Set a start time to be notified before the event.': 'Set a start time to be notified before the event.',
 }

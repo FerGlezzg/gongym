@@ -1110,6 +1110,8 @@ export default {
   'Open progression settings': '打开进阶设置',
   'Hevy is rate-limiting requests — wait a minute and try again': 'Hevy 正在限制请求——请稍等一分钟后重试',
   // --- log a past workout ---
+  "Add at least one exercise": "至少添加一个动作",
+  "Pick a day and a routine, tweak the sets, save. No timers.": "选择日期和计划，调整组数，保存。没有计时器。",
   'Log a past workout': '补记过去的训练',
   'Logged on the usual workout screen, without timers.': '在平时的训练界面记录，只是没有计时器。',
   'Date': '日期',
@@ -1351,6 +1353,10 @@ export default {
   'Event': 'Event',
   'Event added': 'Event added',
   'Log a workout done this day': 'Log a workout done this day',
+  "Previous month": "上个月",
+  "Next month": "下个月",
+  "Previous year": "上一年",
+  "Next year": "下一年",
   'Open calendar': 'Open calendar',
   'Plan a routine for this day': 'Plan a routine for this day',
   'e.g. 10K race': 'e.g. 10K race',
@@ -1406,5 +1412,7 @@ export default {
   'All day': 'All day',
   'Starts at {0}': 'Starts at {0}',
   'Turn on notifications in Settings to get event reminders.': 'Turn on notifications in Settings to get event reminders.',
+  "Removes every later occurrence.": "删除之后的所有重复。",
+  "Rewrites this and every later occurrence.": "重写此项及之后的所有重复。",
   'Set a start time to be notified before the event.': 'Set a start time to be notified before the event.',
 }

@@ -3,7 +3,7 @@ import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, isCardio, isBodyweightEq, allExercises, equipmentOf, smOf, matchExercise, exOr } from './lib/exercises.js'
 import { activeProfile, exAvailable, ALL_EQUIPMENT, newProfile } from './lib/equipment.js'
-import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, isoOf, uid, exCount, DAYN, DAYS, weekOrder, weekStartOf, weekDayOffset, MONTHS_LONG, ACCENTS, localTZ } from './lib/format.js'
+import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, isoOf, uid, exCount, DAYN, DAYS, weekOrder, weekStartOf, weekDayOffset, MONTHS, MONTHS_LONG, ACCENTS, localTZ } from './lib/format.js'
 import { lastEntryFor, bestWeightFor, bestWeightForEntry, buildSets, effectiveRoutineIds, workoutVolume, setsDone, setsDoneActive, setUnitsTotal, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, EFFORT, capEffort, stepEffort, isBw, isPerSide, sideReps, workSetsDone, applyIntensifierPlan, MAX_PLANNED_WARMUPS, NOTE_MAX } from './lib/history.js'
 import { usesBar, barWeightFor, defaultBarWeight, hasBarOverride } from './lib/bar.js'
 import { toScale, rirOf, EFFORT_PRESETS, effortColor } from './lib/effort.js'
@@ -38,7 +38,7 @@ import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
 import { dietOf, scaleFood, entryAmountLabel, bodyweightKgAt, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
-import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, RECUR, timeLike, NOTIFY_BEFORE } from './lib/events.js'
+import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, RECUR, timeLike, NOTIFY_BEFORE } from './lib/events.js'
 import { loadFoods, foodsReady, foodName, searchFoods, CATEGORY_LABEL, FOOD_CATEGORIES } from './lib/foods.js'
 import { lookupBarcode } from './lib/off.js'
 import { scanBarcode, importCodeFromImage } from './lib/scan.js'
@@ -1615,7 +1615,10 @@ function EventSheet({ iso, event, close }) {
   const [kph, setKph] = useState(event?.kcalPerHour ?? null)
   const [start, setStart] = useState(event?.start || '')
   const [end, setEnd] = useState(event?.end || '')
-  const [repeat, setRepeat] = useState('none')
+  // When editing, seed Repeat from the series (its occurrences' spacing). Changing it later
+  // rewrites this occurrence forward; leaving it untouched edits only this one.
+  const seededRepeat = event ? seriesFrequency(st.events, event) : 'none'
+  const [repeat, setRepeat] = useState(seededRepeat)
   const [notifyBefore, setNotifyBefore] = useState(event?.notify?.before ?? null)
   const [notifyAllDay, setNotifyAllDay] = useState(!!event?.notify?.allDay)
   // new-type form
@@ -1652,8 +1655,14 @@ function EventSheet({ iso, event, close }) {
       notify: notify || null,
     }
     if (event) {
+      // Changing Repeat rewrites this occurrence forward at the new cadence with the edited
+      // details; leaving it as-is keeps the old behaviour — only this occurrence changes.
+      const plan = planEventEdit(st.events, event, { date, freq: repeat, prevFreq: seededRepeat, seriesId: event.series || uid() })
       update(s => {
-        const e = s.events.find(x => x.id === event.id); if (e) Object.assign(e, row, { d: date })
+        if (plan.removeIds.length) s.events = s.events.filter(x => !plan.removeIds.includes(x.id))
+        const e = s.events.find(x => x.id === event.id)
+        if (e) { Object.assign(e, row, { d: date }); if (plan.series) e.series = plan.series; else delete e.series }
+        plan.forwardDates.forEach(dd => s.events.push({ id: uid(), d: dd, ...row, series: plan.series }))
         if (notify && !s.reminder?.tz) s.reminder = { ...(s.reminder || {}), tz: localTZ() }
       })
       close(); toast(t('Saved')); afterNotifySet(); return
@@ -1730,10 +1739,13 @@ function EventSheet({ iso, event, close }) {
       <Switch checked={notifyAllDay} onChange={setNotifyAllDay} />
     </Row>
 
-    {!event && <div style={{ marginTop: 6 }}>
+    <div style={{ marginTop: 6 }}>
       <SelectRow icon="reset" title={t('Repeat')} value={repeat} onChange={setRepeat}
         options={Object.entries(RECUR).map(([k, v]) => ({ value: k, label: t(v.label) }))} />
-    </div>}
+      {event && repeat !== seededRepeat && <div className="small dim" style={{ padding: '2px 2px 6px' }}>
+        {repeat === 'none' ? t('Removes every later occurrence.') : t('Rewrites this and every later occurrence.')}
+      </div>}
+    </div>
 
     <div style={{ height: 16 }} />
     <Button variant="primary" onClick={save}>{event ? t('Save') : t('Add')}</Button>
@@ -2005,6 +2017,29 @@ function Calendar({ start, close }) {
 }
 export const calendarSheet = start => ui().openSheet(close => <Calendar start={start} close={close} />)
 
+// Jump the Home heatmap to any month: a 3×4 grid of months with a year stepper.
+function MonthPicker({ y0, mo0, onPick, close }) {
+  const [yr, setYr] = useState(y0)
+  const now = new Date()
+  return <>
+    <div className="row between" style={{ marginBottom: 12 }}>
+      <button className="iconbtn" onClick={() => setYr(yr - 1)} aria-label={t('Previous year')}><Icon name="chevronLeft" /></button>
+      <h3 style={{ margin: 0 }}>{yr}</h3>
+      <button className="iconbtn" onClick={() => setYr(yr + 1)} aria-label={t('Next year')}><Icon name="chevronRight" /></button>
+    </div>
+    <div className="mp-grid">
+      {MONTHS.map((_, i) => {
+        const sel = yr === y0 && i === mo0
+        const isNow = yr === now.getFullYear() && i === now.getMonth()
+        return <button key={i} className={'chip nocap' + (sel ? ' on' : '')}
+          style={isNow && !sel ? { color: 'var(--acc)', fontWeight: 500 } : undefined}
+          onClick={() => { close(); onPick(yr, i) }}>{t(MONTHS[i])}</button>
+      })}
+    </div>
+  </>
+}
+export const monthPickerSheet = (y0, mo0, onPick) => ui().openSheet(close => <MonthPicker y0={y0} mo0={mo0} onPick={onPick} close={close} />)
+
 /* shared small workout row (used in lists) */
 export function WorkoutRow({ w, onClick }) {
   const st = useStore(s => s.S)
@@ -2045,81 +2080,153 @@ export function beginWorkout(routineIds, bw) {
 }
 
 /* ============================ log a past workout ============================ */
-// The same screen as a live session, pointed at another day. `backfill` on the active
-// session is what tells the workout screen to drop the clock and the rest timers, and tells
-// the finish path to file the workout where its date belongs instead of at the end.
+// One sheet, no navigation: pick a day and a routine, adjust the sets it prefills (already
+// counted as done — you did them), Save. The finished workout is built straight away and
+// filed where its date belongs. No timers, no set-by-set walk, no live-workout machine.
+const LPW_FIELDS = { reps: ['w', 'r'], time: ['sec', 'w'], cardio: ['min', 'speed'] }
+// The field that makes a set "real" — a bodyweight set is 0 kg × 10, not empty.
+const LPW_PRIMARY = { reps: 'r', time: 'sec', cardio: 'min' }
+const lpwNormSet = (s, mode) => {
+  const out = { done: true }
+  for (const f of LPW_FIELDS[mode]) out[f] = Number(s?.[f]) || 0
+  return out
+}
+const lpwBlankSet = mode => lpwNormSet(
+  mode === 'cardio' ? { min: 20, speed: 8 } : mode === 'time' ? { sec: 45 } : { r: 8 }, mode)
+const lpwSetHasValue = (s, mode) => (Number(s?.[LPW_PRIMARY[mode]]) || 0) > 0
+// A built session entry → the editor's lighter model (warm-ups dropped, sets flattened).
+const lpwEntryFrom = e => {
+  const mode = modeOf(e.target || { id: e.id })
+  const sets = (e.sets || []).filter(s => !isWarmupRow(s)).map(s => lpwNormSet(s, mode))
+  return {
+    id: e.id, mode, target: e.target || null,
+    ...(e.sg ? { sg: e.sg } : {}), ...(e.rid ? { rid: e.rid } : {}), ...(e.noProg ? { noProg: true } : {}),
+    sets: sets.length ? sets : [lpwBlankSet(mode)],
+  }
+}
+
 function LogPastWorkout({ iso, close }) {
   const st = useStore(s => s.S)
+  const unit = st.unit
+  const today = todayISO()
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
   const [date, setDate] = useState(iso || isoOf(yesterday))
+  const [routineId, setRoutineId] = useState('')
+  const [entries, setEntries] = useState([])
   const [time, setTime] = useState('18:00')
   const [dur, setDur] = useState(60)
-  const [routineId, setRoutineId] = useState('')
-  const today = todayISO()
-  const options = [{ value: '', label: t('Freestyle') }, ...st.routines.map(r => ({ value: r.id, label: r.name }))]
+  const [replaceId, setReplaceId] = useState('')
 
-  const go = replaceId => {
-    close()
-    beginBackfill({ iso: date, time, durationMin: dur, routineId: routineId || null, replaceId })
+  const existing = workoutsOn(st, date)
+  const exName = id => (EXIDX[id] ? exerciseNameFor(EXIDX[id]) : id)
+
+  const pickRoutine = rid => {
+    setRoutineId(rid)
+    if (!rid) { setEntries([]); return }
+    setEntries(buildCombinedEntries(st, [rid]).entries.map(lpwEntryFrom))
   }
-  const submit = () => {
+  const addExercise = () => {
+    const picker = exercisePicker(ex => {
+      picker.close()
+      const cfg = { id: ex.id, ...defaultConfig(ex.id) }
+      const mode = modeOf(cfg)
+      const sets = buildSets(st, cfg, { preferLast: true }).filter(s => !isWarmupRow(s)).map(s => lpwNormSet(s, mode))
+      setEntries(es => [...es, { id: ex.id, mode, target: cfg, sets: sets.length ? sets : [lpwBlankSet(mode)] }])
+    })
+  }
+  const editSet = (ei, si, f, v) => setEntries(es => es.map((e, i) => i !== ei ? e
+    : { ...e, sets: e.sets.map((s, j) => j !== si ? s : { ...s, [f]: v }) }))
+  const addSet = ei => setEntries(es => es.map((e, i) => i !== ei ? e
+    : { ...e, sets: [...e.sets, { ...e.sets[e.sets.length - 1], done: true }] }))
+  const removeSet = (ei, si) => setEntries(es => es.map((e, i) => i !== ei ? e
+    : { ...e, sets: e.sets.filter((_, j) => j !== si) }).filter(e => e.sets.length))
+  const removeEx = ei => setEntries(es => es.filter((_, i) => i !== ei))
+
+  const save = () => {
     if (!date || date > today) { toast(t('Pick a day up to today')); return }
-    const existing = workoutsOn(st, date)
-    if (!existing.length) { go(null); return }
-    ui().openSheet(c => <SameDayChoice iso={date} existing={existing} close={c}
-      onReplace={id => { c(); go(id) }} onAdd={() => { c(); go(null) }} />, { kind: 'center' })
+    const built = entries.map(e => ({
+      id: e.id, target: e.target || null,
+      ...(e.sg ? { sg: e.sg } : {}), ...(e.rid ? { rid: e.rid } : {}), ...(e.noProg ? { noProg: true } : {}),
+      sets: e.sets.filter(s => lpwSetHasValue(s, e.mode)).map(s => ({ ...s, done: true })),
+    })).filter(e => e.sets.length)
+    if (!built.length) { toast(t('Add at least one exercise')); return }
+    const r = st.routines.find(x => x.id === routineId)
+    const active = {
+      id: uid(), d: date, start: backfillStart(date, time),
+      routineIds: r ? [r.id] : [],
+      name: r ? r.name : t('Freestyle'),
+      bw: null, entries: built,
+      backfill: { durationMin: dur, replaceId: replaceId || null },
+    }
+    const w = buildCompletedWorkout(active, {
+      end: backfillEnd(active),
+      snapshotFor: e => EXIDX[e.id]?.custom ? exerciseMuscleSnapshot(EXIDX[e.id]) : null,
+    })
+    w.vol = workoutVolume(w)
+    update(s => { s.workouts = completeBackfill(s.workouts, active, w) })
+    useStore.getState().autoBackupNow()
+    close(); toast(t('Saved'))
   }
 
   return <>
     <h3>{t('Log a past workout')}</h3>
-    <div className="muted small" style={{ marginBottom: 12 }}>{t('Logged on the usual workout screen, without timers.')}</div>
+    <div className="muted small" style={{ marginBottom: 12 }}>{t('Pick a day and a routine, tweak the sets, save. No timers.')}</div>
+
     <Row icon="calendar" title={t('Date')} value={iso ? fmtDate(iso, true) : undefined}>
       {!iso && <input type="date" className="timef" value={date} max={today} onChange={e => setDate(e.target.value)} />}</Row>
+
+    {existing.length > 0 && <div style={{ marginTop: 10 }}>
+      <div className="small dim" style={{ marginBottom: 6 }}>{t('There is already a workout on that day.')}</div>
+      <div className="chips" style={{ gap: 6 }}>
+        <button className={'chip nocap' + (!replaceId ? ' on' : '')} onClick={() => setReplaceId('')}>{t('Add as second workout')}</button>
+        {existing.map(w => <button key={w.id} className={'chip nocap' + (replaceId === w.id ? ' on' : '')}
+          onClick={() => setReplaceId(w.id)}>{t('Replace')} · {w.name}</button>)}
+      </div>
+    </div>}
+
+    <h4 className="sec" style={{ marginTop: 14 }}>{t('Routine')}</h4>
+    <div className="chips" style={{ gap: 6 }}>
+      <button className={'chip nocap' + (!routineId ? ' on' : '')} onClick={() => pickRoutine('')}>{t('Freestyle')}</button>
+      {st.routines.map(r => <button key={r.id} className={'chip nocap' + (routineId === r.id ? ' on' : '')} onClick={() => pickRoutine(r.id)}>
+        <span style={{ marginRight: 4 }}><Icon name={glyphOf(r.emoji)} style={{ fontSize: 12 }} /></span>{r.name}</button>)}
+    </div>
+
+    <div style={{ marginTop: 12 }}>
+      {entries.map((e, ei) => <div key={ei} className="lpw-ex">
+        <div className="row between" style={{ marginBottom: 6 }}>
+          <b style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{exName(e.id)}</b>
+          <button className="iconbtn" style={{ width: 28, height: 28, fontSize: 13 }} aria-label={t('Remove')} onClick={() => removeEx(ei)}><Icon name="trash" /></button>
+        </div>
+        {e.sets.map((s, si) => <div key={si} className="row lpw-set">
+          <span className="dim small" style={{ width: 14, flex: 'none' }}>{si + 1}</span>
+          {LPW_FIELDS[e.mode].map(f => <span key={f} className="row" style={{ gap: 3, alignItems: 'baseline' }}>
+            <NumberField className="lpw-n" value={s[f]} decimal={f === 'w' || f === 'speed'}
+              onChange={v => editSet(ei, si, f, v)} />
+            <span className="dim small">{f === 'r' ? t('reps') : f === 'w' ? unit : LPW_UNIT[f]}</span>
+          </span>)}
+          {e.sets.length > 1 && <button className="iconbtn" style={{ width: 26, height: 26, fontSize: 11, marginLeft: 'auto' }}
+            aria-label={t('Remove set')} onClick={() => removeSet(ei, si)}><Icon name="xmark" /></button>}
+        </div>)}
+        <button className="chip nocap" style={{ padding: '3px 10px', fontSize: 12, marginTop: 4 }} onClick={() => addSet(ei)}>
+          <Icon name="plus" style={{ fontSize: 11 }} /> {t('Add set')}</button>
+      </div>)}
+      <Button icon="plus" onClick={addExercise} style={{ marginTop: entries.length ? 4 : 0 }}>{t('Add exercise')}</Button>
+    </div>
+
+    <h4 className="sec" style={{ marginTop: 16 }}>{t('Time')}</h4>
     <Row icon="clock" title={t('Start time')}>
       <input type="time" className="timef" value={time} onChange={e => setTime(e.target.value)} /></Row>
     <Stepper label={t('Duration')} unit="min" value={dur} step={5} decimal={false} onChange={v => setDur(Math.max(1, Math.round(v)))} />
-    <div style={{ height: 8 }} />
-    <SelectRow icon="dumbbell" title={t('Routine')} value={routineId} options={options} onChange={setRoutineId} />
-    <div style={{ height: 18 }} />
-    <Button variant="primary" onClick={submit}>{t('Continue')}</Button>
+
+    <div style={{ height: 16 }} />
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
   </>
 }
-// Three ways out when the day already has a workout. Replacing with several on that day means
-// picking which one; the rest of the day is left alone.
-function SameDayChoice({ iso, existing, onReplace, onAdd, close }) {
-  return <div style={{ textAlign: 'center', padding: '4px 0' }}>
-    <h3 style={{ marginBottom: 8 }}>{fmtDate(iso, true)}</h3>
-    <div className="muted" style={{ marginBottom: 18, lineHeight: 1.5 }}>{t('There is already a workout on that day.')}</div>
-    {existing.map(w => <div key={w.id} style={{ marginBottom: 8 }}>
-      <button className="btn danger" onClick={() => onReplace(w.id)}>{existing.length > 1 ? t('Replace') + ' · ' + w.name : t('Replace')}</button>
-    </div>)}
-    <button className="btn primary" onClick={onAdd}>{t('Add as second workout')}</button>
-    <div style={{ height: 8 }} />
-    <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
-  </div>
-}
+const LPW_UNIT = { sec: 's', min: 'min', speed: 'km/h' }
+
 export function logPastWorkoutSheet(iso) {
   if (S().active) { toast(t('Finish the current workout first.')); return }
   ui().openSheet(close => <LogPastWorkout iso={iso} close={close} />)
-}
-// Backfill stays single-routine (the LogPastWorkout UI is one picker), but it emits the new
-// shape: a one-element (or empty) routine list, per-entry rid, no top-level routineId.
-function beginBackfill({ iso, time, durationMin, routineId, replaceId }) {
-  const st = S()
-  const { entries, routineIds: rids, routines } = buildCombinedEntries(st, routineId ? [routineId] : [])
-  update(s => {
-    s.active = {
-      id: uid(), d: iso, start: backfillStart(iso, time),
-      routineIds: rids,
-      name: routines.length ? deriveSessionName(routines.map(r => r.name)) : t('Freestyle'),
-      bw: null, cur: 0, entries,
-      backfill: { durationMin, replaceId: replaceId || null },
-      // Same layout snapshot as a live session (see beginWorkout).
-      workoutView: st.workoutView || 'cards',
-    }
-  })
-  useUI.getState().stopRest()
-  nav('/workout')
 }
 
 /* ============================ add a routine mid-session ============================ */
@@ -2365,12 +2472,9 @@ function doFinishWorkout() {
   const st = S()
   const A = st.active
   if (!A) return
-  const past = !!A.backfill
   const prs = []
   const e1prs = []
-  // A workout logged into the past cannot claim records against the history that came after
-  // it, so a backfilled session reports none and leaves the confirmed weights alone.
-  if (!past) A.entries.forEach(e => {
+  A.entries.forEach(e => {
     const mx = Math.max(0, ...e.sets.filter(s => s.done && !isWarmupRow(s)).map(s => s.w))
     if (mx > 0 && mx > bestWeightFor(st, e.id)) prs.push(e.id)
     // A heavier estimate without a heavier top set is its own kind of progress —
@@ -2379,21 +2483,17 @@ function doFinishWorkout() {
     if (rec && !prs.includes(e.id)) e1prs.push({ id: e.id, ...rec })
   })
   const w = buildCompletedWorkout(A, {
-    end: past ? backfillEnd(A) : Date.now(),
+    end: Date.now(),
     prs,
     snapshotFor: e => EXIDX[e.id]?.custom ? exerciseMuscleSnapshot(EXIDX[e.id]) : null,
   })
   w.vol = workoutVolume(w)
   update(s => {
-    if (past) {
-      s.workouts = completeBackfill(s.workouts, A, w)
-    } else {
-      w.entries.forEach(e => {
-        const mx = bestWeightForEntry(e)
-        if (mx > 0) { const cur = s.exWeights[e.id]; if (!cur || mx > cur.w) s.exWeights[e.id] = { w: mx, d: w.d } }
-      })
-      s.workouts.push(w)
-    }
+    w.entries.forEach(e => {
+      const mx = bestWeightForEntry(e)
+      if (mx > 0) { const cur = s.exWeights[e.id]; if (!cur || mx > cur.w) s.exWeights[e.id] = { w: mx, d: w.d } }
+    })
+    s.workouts.push(w)
     s.active = null
   })
   useStore.getState().autoBackupNow()

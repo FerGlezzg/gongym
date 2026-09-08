@@ -12,9 +12,29 @@ const HeatLegend = () => (
 // month as a calendar grid (Home); the default is the GitHub-style trailing 12 months (Stats).
 // In month view: `dots(iso)` -> 'plan' | 'ovr' | null marks a scheduled routine, `events(iso)`
 // -> emoji marks a custom event, and `onDay` fires for every day (not just trained ones).
-export default function Heatmap({ S, onDay, view, dots, events }) {
+// `month` is the Date whose month to render (defaults to now); `onNav(±1)` fires on a
+// horizontal swipe across the grid so the parent can page months.
+export default function Heatmap({ S, onDay, view, dots, events, month, onNav }) {
   const wrapRef = useRef(null)
   useEffect(() => { if (wrapRef.current) wrapRef.current.scrollLeft = wrapRef.current.scrollWidth }, [])
+
+  // Horizontal-swipe paging for month view. A drag under the threshold falls through to the
+  // day's own tap handler, so this never steals a plain tap.
+  const swipe = useRef(null)
+  const swiped = useRef(false)
+  const swDown = e => {
+    if (e.pointerType && e.pointerType !== 'touch' && e.pointerType !== 'pen') return
+    swipe.current = { x: e.clientX, y: e.clientY, id: e.pointerId }
+  }
+  const swUp = e => {
+    const s = swipe.current; swipe.current = null
+    if (!s || s.id !== e.pointerId || !onNav) return
+    const dx = e.clientX - s.x, dy = e.clientY - s.y
+    if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.4) return
+    swiped.current = true                          // swallow the click this gesture also fires
+    onNav(dx < 0 ? 1 : -1)
+  }
+  const swClick = e => { if (swiped.current) { swiped.current = false; e.stopPropagation() } }
 
   const agg = {}
   S.workouts.forEach(w => {
@@ -35,7 +55,8 @@ export default function Heatmap({ S, onDay, view, dots, events }) {
   const level = a => !a ? 0 : !a.min ? 1 : a.min >= t3 ? 4 : a.min >= t2 ? 3 : a.min >= t1 ? 2 : 1
 
   if (view === 'month') {
-    const now = new Date(); now.setHours(12, 0, 0, 0)
+    const now = month instanceof Date ? new Date(month) : new Date()
+    now.setHours(12, 0, 0, 0)
     const y = now.getFullYear(), mo = now.getMonth()
     const ws = weekStartOf(S)
     const offset = weekDayOffset(new Date(y, mo, 1).getDay(), ws)
@@ -62,7 +83,8 @@ export default function Heatmap({ S, onDay, view, dots, events }) {
       </div>)
     }
     return <>
-      <div className="hm-month">
+      <div className="hm-month" onPointerDown={swDown} onPointerUp={swUp}
+        onPointerCancel={() => { swipe.current = null }} onClickCapture={swClick}>
         {weekOrder(ws).map(wd => <div key={wd} className="hm-h">{t(DAYS[wd])}</div>)}
         {cells}
       </div>
