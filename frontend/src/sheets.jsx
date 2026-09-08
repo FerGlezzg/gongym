@@ -1597,12 +1597,14 @@ function DayAddRoutine({ day, close }) {
 export const dayAddRoutineSheet = day => ui().openSheet(close => <DayAddRoutine day={day} close={close} />)
 
 /* ============================ saved week schedules ============================ */
-// S.week is the single live schedule every training-logic helper reads. This sheet saves it
-// as a named snapshot in S.weekPresets and loads one back — so a volume block and a cut can
-// be two taps apart without touching the routines themselves.
+// S.week is the single live schedule every training-logic helper reads. This sheet keeps a
+// library of named schedules in S.weekPresets and switches S.week between them; S.activeWeekId
+// says which one is live. While a schedule is active, editing days on the Plan screen writes
+// straight back to it (syncActiveWeekPreset in the store), so switching never loses edits.
 function WeekPresetsSheet({ close }) {
   const st = useStore(s => s.S)
   const presets = st.weekPresets || []
+  const activeId = st.activeWeekId
   const order = weekOrder(weekStartOf(st))
   const curDays = order.filter(d => [].concat(st.week[d] || []).length).length
   const [mode, setMode] = useState(null)      // null | 'save' | <presetId being renamed>
@@ -1617,7 +1619,8 @@ function WeekPresetsSheet({ close }) {
 
   const saveCurrent = () => {
     const name = (nameRef.current?.value || '').trim() || t('Schedule {0}', presets.length + 1)
-    update(s => { (s.weekPresets = s.weekPresets || []).push({ id: uid(), name, week: JSON.parse(JSON.stringify(s.week || {})) }) })
+    const id = uid()
+    update(s => { (s.weekPresets = s.weekPresets || []).push({ id, name, week: JSON.parse(JSON.stringify(s.week || {})) }); s.activeWeekId = id })
     setMode(null); toast(t('Schedule saved'))
   }
   const rename = id => {
@@ -1625,26 +1628,32 @@ function WeekPresetsSheet({ close }) {
     if (name) update(s => { const p = (s.weekPresets || []).find(x => x.id === id); if (p) p.name = name })
     setMode(null)
   }
-  const load = p => confirmSheet({
-    title: t('Load "{0}"?', p.name),
-    message: t('This replaces the current week schedule.'),
-    confirmText: t('Load'),
-    onConfirm: () => { update(s => { s.week = JSON.parse(JSON.stringify(p.week || {})) }); close(); toast(t('Schedule loaded')) },
-  })
-  const overwrite = p => confirmSheet({
-    title: t('Update "{0}"?', p.name),
-    message: t('Save the current week schedule over this one.'),
-    confirmText: t('Update'),
-    onConfirm: () => { update(s => { const x = (s.weekPresets || []).find(y => y.id === p.id); if (x) x.week = JSON.parse(JSON.stringify(s.week || {})) }); toast(t('Schedule updated')) },
-  })
+  const activate = p => {
+    update(s => { s.week = JSON.parse(JSON.stringify(p.week || {})); s.activeWeekId = p.id })
+    close(); toast(t('Now following "{0}"', p.name))
+  }
+  const load = p => {
+    if (p.id === activeId) { close(); return }
+    // Only risky when the current week isn't tracked by any schedule and has content.
+    if (!activeId && curDays > 0) confirmSheet({
+      title: t('Switch to "{0}"?', p.name),
+      message: t('Your current week schedule is not saved. Save it first if you want to keep it.'),
+      confirmText: t('Switch'),
+      onConfirm: () => activate(p),
+    })
+    else activate(p)
+  }
   const del = p => confirmSheet({
     title: t('Delete "{0}"?', p.name), confirmText: t('Delete'), danger: true,
-    onConfirm: () => update(s => { s.weekPresets = (s.weekPresets || []).filter(x => x.id !== p.id) }),
+    onConfirm: () => update(s => {
+      s.weekPresets = (s.weekPresets || []).filter(x => x.id !== p.id)
+      if (s.activeWeekId === p.id) s.activeWeekId = null
+    }),
   })
 
   if (mode === 'save') return <>
     <h3>{t('Save week schedule')}</h3>
-    <div className="muted small" style={{ marginBottom: 12 }}>{t('A snapshot of the days you have set up. Load it back any time.')}</div>
+    <div className="muted small" style={{ marginBottom: 12 }}>{t('A snapshot of the days you have set up. Switch back to it any time.')}</div>
     <TextField ref={nameRef} placeholder={t('e.g. Volume block')} maxLength={40} defaultValue="" />
     <div style={{ height: 14 }} />
     <Button variant="primary" onClick={saveCurrent}>{t('Save')}</Button>
@@ -1652,8 +1661,10 @@ function WeekPresetsSheet({ close }) {
   </>
 
   return <>
-    <h3>{t('Saved schedules')}</h3>
-    <div className="muted small" style={{ marginBottom: 12 }}>{t('Switch your weekly plan between saved schedules — a volume block and a cut, say.')}</div>
+    <h3>{t('Week schedules')}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>
+      {t('Switch your weekly plan between saved schedules — a volume block and a cut, say. Editing days changes whichever schedule is active.')}
+    </div>
     <Button variant="primary" icon="plus" onClick={() => setMode('save')} disabled={!curDays}>{t('Save current week')}</Button>
     {!curDays && <div className="small dim" style={{ marginTop: 6 }}>{t('Set up some training days first.')}</div>}
 
@@ -1663,10 +1674,12 @@ function WeekPresetsSheet({ close }) {
             <TextField ref={nameRef} defaultValue={p.name} maxLength={40} style={{ flex: 1 }} />
             <Button size="sm" variant="primary" onClick={() => rename(p.id)}>{t('Save')}</Button>
           </div>
-        : <div key={p.id} className="item" {...tappable(() => load(p))}>
-            <span className="lrow-i"><Icon name="calendar" /></span>
-            <div className="grow" style={{ minWidth: 0 }}><div className="tt">{p.name}</div><div className="ss">{summarise(p.week)}</div></div>
-            <button className="iconbtn sm" aria-label={t('Update')} onClick={e => { e.stopPropagation(); overwrite(p) }}><Icon name="reset" /></button>
+        : <div key={p.id} className={'item' + (p.id === activeId ? ' on-ss' : '')} {...tappable(() => load(p))}>
+            <span className="lrow-i" style={p.id === activeId ? { background: 'var(--acc)', color: '#000' } : undefined}><Icon name="calendar" /></span>
+            <div className="grow" style={{ minWidth: 0 }}>
+              <div className="tt">{p.name}{p.id === activeId && <span className="tag acc" style={{ marginLeft: 8 }}>{t('Active')}</span>}</div>
+              <div className="ss">{summarise(p.week)}</div>
+            </div>
             <button className="iconbtn sm" aria-label={t('Rename')} onClick={e => { e.stopPropagation(); setMode(p.id) }}><Icon name="pencil" /></button>
             <button className="iconbtn sm" style={{ color: 'var(--red)' }} aria-label={t('Delete')} onClick={e => { e.stopPropagation(); del(p) }}><Icon name="trash" /></button>
           </div>)}

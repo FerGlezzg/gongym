@@ -18,8 +18,10 @@ export const DEF = {
   bodyweight: [], routines: [], week: {}, dayPlan: {},
   // Saved week schedules you can switch between (Plan → Week → Schedules). `week` above stays
   // the single live schedule every training-logic helper reads; each preset is a named
-  // snapshot ({ id, name, week: {wd:[routineId]} }) you save from / load back into it.
-  weekPresets: [],
+  // snapshot ({ id, name, week: {wd:[routineId]} }). `activeWeekId` is the preset `week`
+  // currently mirrors — while it is set, every edit to `week` is written back to that preset
+  // (see syncActiveWeekPreset), so switching schedules never loses in-progress edits.
+  weekPresets: [], activeWeekId: null,
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // How the active workout is laid out — 'cards' (one exercise at a time with Prev/Next),
   // 'list' (every exercise stacked and scrollable) or 'compact' (that stack stripped to just
@@ -90,6 +92,17 @@ function loadState() {
 }
 
 const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length)
+
+// Keep the active saved schedule mirroring the live `week`, so editing days while a schedule
+// is selected updates that schedule and switching to another never drops the edits. A single
+// point after every update() covers all the day-editing call sites without touching them.
+function syncActiveWeekPreset(S) {
+  const id = S.activeWeekId
+  if (!id) return
+  const p = (S.weekPresets || []).find(x => x.id === id)
+  if (!p) { S.activeWeekId = null; return }
+  p.week = JSON.parse(JSON.stringify(S.week || {}))
+}
 
 // Decide whether a pulled account state may replace the local saved state. A local active workout
 // is deliberately carried forward: the server stores completed/saved state, while the in-progress
@@ -175,6 +188,7 @@ export const useStore = create((set, get) => {
     update(mut, push = true) {
       const S = clone(get().S)
       mut(S)
+      syncActiveWeekPreset(S)
       persist(S, push)
     },
     replaceState(S, push = false) { persist(clone(S), push) },

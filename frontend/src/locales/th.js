@@ -1348,4 +1348,13 @@ export default {
   'Delete "{0}"?': 'Delete "{0}"?',
   '{0} training days': '{0} training days',
   'Switch your weekly plan between saved schedules — a volume block and a cut, say.': 'Switch your weekly plan between saved schedules — a volume block and a cut, say.',
+  'Week schedules': 'Week schedules',
+  'Now following "{0}"': 'Now following "{0}"',
+  'Switch to "{0}"?': 'Switch to "{0}"?',
+  'Your current week schedule is not saved. Save it first if you want to keep it.': 'Your current week schedule is not saved. Save it first if you want to keep it.',
+  'Switch': 'Switch',
+  'Unsaved schedule': 'Unsaved schedule',
+  'Active schedule — tap to switch': 'Active schedule — tap to switch',
+  'A snapshot of the days you have set up. Switch back to it any time.': 'A snapshot of the days you have set up. Switch back to it any time.',
+  'Switch your weekly plan between saved schedules — a volume block and a cut, say. Editing days changes whichever schedule is active.': 'Switch your weekly plan between saved schedules — a volume block and a cut, say. Editing days changes whichever schedule is active.',
 }

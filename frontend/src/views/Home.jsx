@@ -56,6 +56,7 @@ export default function Home() {
   const wkLabel = weekOffset === 0 ? t('This week') : `${wkStart.getDate()} ${wkStart.toLocaleDateString(dateLocale(), { month: 'short' })} – ${wkEnd.getDate()} ${wkEnd.toLocaleDateString(dateLocale(), { month: 'short' })}`
 
   const bwPoints = S.bodyweight.slice(-30).map(b => ({ t: b.t || new Date(b.d).getTime(), y: b.w, d: b.d }))
+  const activePreset = (S.weekPresets || []).find(p => p.id === S.activeWeekId)
 
   // today's session shown right under the week strip
   const onToday = () => { if (S.active) nav('/workout'); else if (todayRoutines.length) startFlow(effectiveRoutineIds(S, todayISO())); else dayOverrideSheet(todayISO()) }
@@ -87,6 +88,12 @@ export default function Home() {
         <button className="iconbtn" style={{ width: 30, height: 30, fontSize: 15 }} onClick={() => setWeekOffset(w => w + 1)} aria-label="Next week"><Icon name="chevronRight" /></button>
       </div>
       <div className="week">{strip}</div>
+      {activePreset && (
+        <div className="ss" style={{ textAlign: 'center', marginTop: 6, cursor: 'pointer' }} {...tappable(() => nav('/plan'))}>
+          <Icon name="calendar" style={{ fontSize: 12, verticalAlign: '-1px', marginRight: 4, color: 'var(--acc)' }} />
+          {activePreset.name}
+        </div>
+      )}
       {/* Once today's session is logged the row stops asking for it. The week strip already
           knew (its dot goes 'done'); this row did not, so a finished day kept showing the
           routine name behind a green Start tag and read as still outstanding (issue #4).

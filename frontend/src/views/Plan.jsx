@@ -44,6 +44,7 @@ export default function Plan() {
   })
 
   const favExercises = favIds(S).map(id => EXIDX[id]).filter(Boolean)
+  const activePreset = (S.weekPresets || []).find(p => p.id === S.activeWeekId)
 
   return <>
     <div className="hdr">
@@ -74,6 +75,16 @@ export default function Plan() {
           {t('Schedules')}{S.weekPresets?.length ? ' ' + S.weekPresets.length : ''}
         </Button>
       </div>
+      {S.weekPresets?.length > 0 && (
+        <div className="item" {...tappable(weekPresetsSheet)} style={{ marginBottom: 10 }}>
+          <span className="lrow-i" style={{ background: 'var(--acc)', color: '#000' }}><Icon name="calendar" /></span>
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="tt">{activePreset ? activePreset.name : t('Unsaved schedule')}</div>
+            <div className="ss">{t('Active schedule — tap to switch')}</div>
+          </div>
+          <Icon name="chevronRight" className="chev" />
+        </div>
+      )}
       <div className="list" style={{ display: 'flex', flexDirection: 'column' }}>
         {weekOrder(weekStartOf(S)).map(d => {
           const dayRoutines = [].concat(S.week[d] || []).map(id => S.routines.find(x => x.id === id)).filter(Boolean)

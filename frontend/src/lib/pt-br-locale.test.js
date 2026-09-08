@@ -28,12 +28,12 @@ describe('Brazilian Portuguese locale', () => {
     const fingerprint = createHash('sha256').update(JSON.stringify(inherited)).digest('hex')
 
     expect(Object.keys(PT_BR_OVERRIDES)).toHaveLength(631)
-    expect(inherited).toHaveLength(762)
+    expect(inherited).toHaveLength(771)
     // If this fails, review the changed keys and wording before accepting a new hash. From
     // frontend/: node scripts/pt-br-inheritance-fingerprint.mjs --list
-    // 2026-09: +128 Diet / food-database / Plan-tabs / Home / saved-schedules source
+    // 2026-09: +137 Diet / food-database / Plan-tabs / Home / week-schedules source
     // strings inherited from pt-PT as English placeholders, pending Portuguese translation.
-    expect(fingerprint, 'pt-PT inheritance changed; review the inherited pt-BR wording').toBe('2fae31f441fb51f7542afbb364867cae9d0606ba3fe958544afdf42a2f91762c')
+    expect(fingerprint, 'pt-PT inheritance changed; review the inherited pt-BR wording').toBe('495438cf36cada704f0fc66069b5400866cdc3dd55071708676202613992f06f')
   })
 
   test('does not leak European Portuguese UI terms', () => {

@@ -1337,4 +1337,13 @@ export default {
   'Delete "{0}"?': '¿Eliminar "{0}"?',
   '{0} training days': '{0} días de entrenamiento',
   'Switch your weekly plan between saved schedules — a volume block and a cut, say.': 'Cambia tu plan semanal entre horarios guardados — un bloque de volumen y una definición, por ejemplo.',
+  'Week schedules': 'Horarios semanales',
+  'Now following "{0}"': 'Ahora sigues "{0}"',
+  'Switch to "{0}"?': '¿Cambiar a "{0}"?',
+  'Your current week schedule is not saved. Save it first if you want to keep it.': 'Tu horario semanal actual no está guardado. Guárdalo primero si quieres conservarlo.',
+  'Switch': 'Cambiar',
+  'Unsaved schedule': 'Horario sin guardar',
+  'Active schedule — tap to switch': 'Horario activo — toca para cambiar',
+  'A snapshot of the days you have set up. Switch back to it any time.': 'Una instantánea de los días que has configurado. Vuelve a él cuando quieras.',
+  'Switch your weekly plan between saved schedules — a volume block and a cut, say. Editing days changes whichever schedule is active.': 'Cambia tu plan semanal entre horarios guardados — un bloque de volumen y una definición, por ejemplo. Editar los días modifica el horario que esté activo.',
 }
