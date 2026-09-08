@@ -1553,6 +1553,78 @@ function DayOverride({ iso, close }) {
 }
 export const dayOverrideSheet = iso => ui().openSheet(close => <DayOverride iso={iso} close={close} />)
 
+/* ============================ day hub (Home calendar) ============================ */
+// One tap on a day in the Home month calendar: what happened / is planned that day, plus
+// every way to add to it — a per-date routine override, a workout logged after the fact,
+// or a custom event.
+function DayHub({ iso, close }) {
+  const st = useStore(s => s.S)
+  const workouts = workoutsOn(st, iso)
+  const events = (st.events || []).filter(e => e.d === iso)
+  const wd = new Date(iso + 'T12:00:00').getDay()
+  const weeklyNames = [].concat(st.week[wd] || []).map(id => st.routines.find(r => r.id === id)?.name).filter(Boolean)
+  const hasOvr = st.dayPlan[iso] !== undefined
+  const past = iso <= todayISO()
+
+  return <>
+    <h3 style={{ marginBottom: 2 }}>{fmtDate(iso, true)}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>
+      {t('Weekly plan:')} {weeklyNames.length ? deriveSessionName(weeklyNames) : t('Rest')}
+      {hasOvr && <span style={{ color: 'var(--orange)' }}> · {t('changed for this day')}</span>}
+    </div>
+
+    {(workouts.length > 0 || events.length > 0) && <div className="list" style={{ marginBottom: 14 }}>
+      {workouts.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { close(); workoutDetailSheet(w) }} />)}
+      {events.map(e => <div key={e.id} className="item" {...tappable(() => { close(); eventSheet(iso, e) })}>
+        <span className="lrow-i" style={{ fontSize: 18 }}>{e.emoji || '📅'}</span>
+        <div className="grow"><div className="tt">{e.name}</div><div className="ss">{t('Event')}</div></div>
+        <Icon name="chevronRight" className="chev" />
+      </div>)}
+    </div>}
+
+    <Button icon="clipboard" onClick={() => { close(); dayOverrideSheet(iso) }}>{t('Plan a routine for this day')}</Button>
+    {past && <><div style={{ height: 8 }} />
+      <Button icon="plus" onClick={() => { close(); logPastWorkoutSheet(iso) }}>{t('Log a workout done this day')}</Button></>}
+    <div style={{ height: 8 }} />
+    <Button icon="flag" onClick={() => { close(); eventSheet(iso) }}>{t('Add an event')}</Button>
+  </>
+}
+export const dayHubSheet = iso => ui().openSheet(close => <DayHub iso={iso} close={close} />)
+
+/* ============================ custom event ============================ */
+// A marker on the calendar for something that is not a logged workout — a race, a match,
+// a night out. Name + emoji, pinned to a date, stored in S.events.
+export const EVENT_EMOJI = [
+  '⚽', '🏀', '🎾', '🏐', '🏈', '⚾', '🏃', '🚴', '🏊', '🥊', '🧗', '⛷️',
+  '🏆', '🥇', '🎯', '🎳', '🥾', '🏌️', '🍻', '🎉', '🎂', '✈️', '🎓', '📅',
+]
+function EventSheet({ iso, event, close }) {
+  const [name, setName] = useState(event?.name || '')
+  const [emoji, setEmoji] = useState(event?.emoji || '📅')
+  const save = () => {
+    const nm = name.trim()
+    if (!nm) { toast(t('Give it a name')); return }
+    update(s => {
+      s.events = s.events || []
+      if (event) { const e = s.events.find(x => x.id === event.id); if (e) { e.name = nm; e.emoji = emoji } }
+      else s.events.push({ id: uid(), d: iso, name: nm, emoji })
+    })
+    close(); toast(event ? t('Saved') : t('Event added'))
+  }
+  const del = () => { update(s => { s.events = (s.events || []).filter(x => x.id !== event.id) }); close(); toast(t('Removed')) }
+  return <>
+    <h3>{event ? t('Edit event') : t('Add an event')}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>{fmtDate(iso, true)}</div>
+    <input className="input" placeholder={t('e.g. 10K race')} value={name} onChange={e => setName(e.target.value)} />
+    <div className="chips" style={{ margin: '12px 0', gap: 6 }}>
+      {EVENT_EMOJI.map(x => <button key={x} className={'chip' + (emoji === x ? ' on' : '')} style={{ fontSize: 18, padding: '4px 8px' }} onClick={() => setEmoji(x)}>{x}</button>)}
+    </div>
+    <Button variant="primary" onClick={save}>{event ? t('Save') : t('Add')}</Button>
+    {event && <><div style={{ height: 8 }} /><Button variant="danger" icon="trash" onClick={del}>{t('Delete')}</Button></>}
+  </>
+}
+export const eventSheet = (iso, event) => ui().openSheet(close => <EventSheet iso={iso} event={event} close={close} />)
+
 function DayAssign({ day, close }) {
   const st = useStore(s => s.S)
   // A weekday holds a routine-id list; this single-pick sheet sets an empty day to exactly one
@@ -1854,10 +1926,10 @@ export function beginWorkout(routineIds, bw) {
 // The same screen as a live session, pointed at another day. `backfill` on the active
 // session is what tells the workout screen to drop the clock and the rest timers, and tells
 // the finish path to file the workout where its date belongs instead of at the end.
-function LogPastWorkout({ close }) {
+function LogPastWorkout({ iso, close }) {
   const st = useStore(s => s.S)
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
-  const [date, setDate] = useState(isoOf(yesterday))
+  const [date, setDate] = useState(iso || isoOf(yesterday))
   const [time, setTime] = useState('18:00')
   const [dur, setDur] = useState(60)
   const [routineId, setRoutineId] = useState('')
@@ -1879,8 +1951,8 @@ function LogPastWorkout({ close }) {
   return <>
     <h3>{t('Log a past workout')}</h3>
     <div className="muted small" style={{ marginBottom: 12 }}>{t('Logged on the usual workout screen, without timers.')}</div>
-    <Row icon="calendar" title={t('Date')}>
-      <input type="date" className="timef" value={date} max={today} onChange={e => setDate(e.target.value)} /></Row>
+    <Row icon="calendar" title={t('Date')} value={iso ? fmtDate(iso, true) : undefined}>
+      {!iso && <input type="date" className="timef" value={date} max={today} onChange={e => setDate(e.target.value)} />}</Row>
     <Row icon="clock" title={t('Start time')}>
       <input type="time" className="timef" value={time} onChange={e => setTime(e.target.value)} /></Row>
     <Stepper label={t('Duration')} unit="min" value={dur} step={5} decimal={false} onChange={v => setDur(Math.max(1, Math.round(v)))} />
@@ -1904,9 +1976,9 @@ function SameDayChoice({ iso, existing, onReplace, onAdd, close }) {
     <Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
   </div>
 }
-export function logPastWorkoutSheet() {
+export function logPastWorkoutSheet(iso) {
   if (S().active) { toast(t('Finish the current workout first.')); return }
-  ui().openSheet(close => <LogPastWorkout close={close} />)
+  ui().openSheet(close => <LogPastWorkout iso={iso} close={close} />)
 }
 // Backfill stays single-routine (the LogPastWorkout UI is one picker), but it emits the new
 // shape: a one-element (or empty) routine list, per-entry rid, no top-level routineId.

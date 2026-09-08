@@ -974,10 +974,16 @@ h4.sec{
 .hm-month{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:8px}
 .hm-month .hm-h{text-align:center;font-size:11px;color:var(--label-3);font-weight:500;text-transform:uppercase;padding:2px 0}
 .hm-md{
+  position:relative;
   aspect-ratio:1;border-radius:9px;background:var(--surface-2);
   display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--label-2);
   transition:background var(--fast);
 }
+/* markers under the day number: a scheduled-routine dot and/or a custom-event emoji */
+.hm-mk{position:absolute;bottom:3px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:2px;line-height:1;pointer-events:none}
+.hm-mk .d{width:4px;height:4px;border-radius:50%;background:var(--label-3)}
+.hm-mk .d.ovr{background:var(--orange)}
+.hm-mk .e{font-size:9px}
 .hm-md.l1{background:color-mix(in srgb,var(--acc) 30%,var(--surface-2))}
 .hm-md.l2{background:color-mix(in srgb,var(--acc) 55%,var(--surface-2));color:var(--label)}
 .hm-md.l3{background:color-mix(in srgb,var(--acc) 82%,var(--surface-2));color:#000}

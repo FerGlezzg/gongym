@@ -1346,4 +1346,12 @@ export default {
   'Active schedule — tap to switch': 'Horario activo — toca para cambiar',
   'A snapshot of the days you have set up. Switch back to it any time.': 'Una instantánea de los días que has configurado. Vuelve a él cuando quieras.',
   'Switch your weekly plan between saved schedules — a volume block and a cut, say. Editing days changes whichever schedule is active.': 'Cambia tu plan semanal entre horarios guardados — un bloque de volumen y una definición, por ejemplo. Editar los días modifica el horario que esté activo.',
+  'Add an event': 'Añadir evento',
+  'Edit event': 'Editar evento',
+  'Event': 'Evento',
+  'Event added': 'Evento añadido',
+  'Log a workout done this day': 'Registrar un entreno hecho este día',
+  'Open calendar': 'Abrir calendario',
+  'Plan a routine for this day': 'Planificar una rutina para este día',
+  'e.g. 10K race': 'p. ej. Carrera 10K',
 }

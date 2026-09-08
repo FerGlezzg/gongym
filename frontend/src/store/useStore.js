@@ -22,6 +22,10 @@ export const DEF = {
   // currently mirrors — while it is set, every edit to `week` is written back to that preset
   // (see syncActiveWeekPreset), so switching schedules never loses in-progress edits.
   weekPresets: [], activeWeekId: null,
+  // Personal one-off calendar events — a race, a match, anything worth marking on the
+  // calendar that is not a logged workout. Marker only: { id, d:'YYYY-MM-DD', name, emoji }.
+  // Personal, so it never travels in a shared plan bundle (like favEx / weekPresets).
+  events: [],
   exWeights: {}, workouts: [], active: null, customEx: [], gifSize: 'full',
   // How the active workout is laid out — 'cards' (one exercise at a time with Prev/Next),
   // 'list' (every exercise stacked and scrollable) or 'compact' (that stack stripped to just

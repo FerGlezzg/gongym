@@ -1346,4 +1346,12 @@ export default {
   'Active schedule — tap to switch': 'Active schedule — tap to switch',
   'A snapshot of the days you have set up. Switch back to it any time.': 'A snapshot of the days you have set up. Switch back to it any time.',
   'Switch your weekly plan between saved schedules — a volume block and a cut, say. Editing days changes whichever schedule is active.': 'Switch your weekly plan between saved schedules — a volume block and a cut, say. Editing days changes whichever schedule is active.',
+  'Add an event': 'Add an event',
+  'Edit event': 'Edit event',
+  'Event': 'Event',
+  'Event added': 'Event added',
+  'Log a workout done this day': 'Log a workout done this day',
+  'Open calendar': 'Open calendar',
+  'Plan a routine for this day': 'Plan a routine for this day',
+  'e.g. 10K race': 'e.g. 10K race',
 }

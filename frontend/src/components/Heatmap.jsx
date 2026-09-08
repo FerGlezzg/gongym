@@ -9,7 +9,9 @@ const HeatLegend = () => (
 
 // Activity heatmap, shaded by time trained per day. `view="month"` renders the current
 // month as a calendar grid (Home); the default is the GitHub-style trailing 12 months (Stats).
-export default function Heatmap({ S, onDay, view }) {
+// In month view: `dots(iso)` -> 'plan' | 'ovr' | null marks a scheduled routine, `events(iso)`
+// -> emoji marks a custom event, and `onDay` fires for every day (not just trained ones).
+export default function Heatmap({ S, onDay, view, dots, events }) {
   const wrapRef = useRef(null)
   useEffect(() => { if (wrapRef.current) wrapRef.current.scrollLeft = wrapRef.current.scrollWidth }, [])
 
@@ -36,10 +38,18 @@ export default function Heatmap({ S, onDay, view }) {
     for (let d = 1; d <= daysIn; d++) {
       const key = `${y}-${pad(mo + 1)}-${pad(d)}`
       const a = agg[key]
+      const dot = !a && dots ? dots(key) : null      // trained days are shaded, no dot
+      const ev = events ? events(key) : null
+      const emoji = typeof ev === 'string' ? ev : ev?.emoji || null
       const cls = 'hm-md l' + level(a) + (key === todayISO() ? ' today' : '') + (key > todayISO() ? ' future' : '') + (a ? ' trained' : '')
       cells.push(<div key={d} className={cls}
-        title={key + (a ? ` · ${t(a.n === 1 ? '{0} workout' : '{0} workouts', a.n)} · ${a.min} min · ${fmtVol(a.vol, S.unit)}` : '')}
-        {...tappable(a ? () => onDay(key) : undefined)}>{d}</div>)
+        title={key
+          + (a ? ` · ${t(a.n === 1 ? '{0} workout' : '{0} workouts', a.n)} · ${a.min} min · ${fmtVol(a.vol, S.unit)}` : '')
+          + (ev?.name ? ` · ${ev.name}` : '')}
+        {...tappable(onDay ? () => onDay(key) : undefined)}>
+        <span>{d}</span>
+        {(dot || emoji) && <span className="hm-mk">{dot && <i className={'d ' + dot} />}{emoji && <span className="e">{emoji}</span>}</span>}
+      </div>)
     }
     return <>
       <div className="hm-month">
