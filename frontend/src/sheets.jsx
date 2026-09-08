@@ -1596,6 +1596,85 @@ function DayAddRoutine({ day, close }) {
 }
 export const dayAddRoutineSheet = day => ui().openSheet(close => <DayAddRoutine day={day} close={close} />)
 
+/* ============================ saved week schedules ============================ */
+// S.week is the single live schedule every training-logic helper reads. This sheet saves it
+// as a named snapshot in S.weekPresets and loads one back — so a volume block and a cut can
+// be two taps apart without touching the routines themselves.
+function WeekPresetsSheet({ close }) {
+  const st = useStore(s => s.S)
+  const presets = st.weekPresets || []
+  const order = weekOrder(weekStartOf(st))
+  const curDays = order.filter(d => [].concat(st.week[d] || []).length).length
+  const [mode, setMode] = useState(null)      // null | 'save' | <presetId being renamed>
+  const nameRef = useRef(null)
+
+  const summarise = week => {
+    const days = order.filter(d => [].concat(week[d] || []).length).length
+    const names = [...new Set(order.flatMap(d => [].concat(week[d] || [])))]
+      .map(id => st.routines.find(r => r.id === id)?.name).filter(Boolean)
+    return t('{0} training days', days) + (names.length ? ' · ' + names.slice(0, 3).join(', ') + (names.length > 3 ? '…' : '') : '')
+  }
+
+  const saveCurrent = () => {
+    const name = (nameRef.current?.value || '').trim() || t('Schedule {0}', presets.length + 1)
+    update(s => { (s.weekPresets = s.weekPresets || []).push({ id: uid(), name, week: JSON.parse(JSON.stringify(s.week || {})) }) })
+    setMode(null); toast(t('Schedule saved'))
+  }
+  const rename = id => {
+    const name = (nameRef.current?.value || '').trim()
+    if (name) update(s => { const p = (s.weekPresets || []).find(x => x.id === id); if (p) p.name = name })
+    setMode(null)
+  }
+  const load = p => confirmSheet({
+    title: t('Load "{0}"?', p.name),
+    message: t('This replaces the current week schedule.'),
+    confirmText: t('Load'),
+    onConfirm: () => { update(s => { s.week = JSON.parse(JSON.stringify(p.week || {})) }); close(); toast(t('Schedule loaded')) },
+  })
+  const overwrite = p => confirmSheet({
+    title: t('Update "{0}"?', p.name),
+    message: t('Save the current week schedule over this one.'),
+    confirmText: t('Update'),
+    onConfirm: () => { update(s => { const x = (s.weekPresets || []).find(y => y.id === p.id); if (x) x.week = JSON.parse(JSON.stringify(s.week || {})) }); toast(t('Schedule updated')) },
+  })
+  const del = p => confirmSheet({
+    title: t('Delete "{0}"?', p.name), confirmText: t('Delete'), danger: true,
+    onConfirm: () => update(s => { s.weekPresets = (s.weekPresets || []).filter(x => x.id !== p.id) }),
+  })
+
+  if (mode === 'save') return <>
+    <h3>{t('Save week schedule')}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>{t('A snapshot of the days you have set up. Load it back any time.')}</div>
+    <TextField ref={nameRef} placeholder={t('e.g. Volume block')} maxLength={40} defaultValue="" />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={saveCurrent}>{t('Save')}</Button>
+    <div style={{ height: 8 }} /><Button variant="ghost" className="dim" onClick={() => setMode(null)}>{t('Cancel')}</Button>
+  </>
+
+  return <>
+    <h3>{t('Saved schedules')}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>{t('Switch your weekly plan between saved schedules — a volume block and a cut, say.')}</div>
+    <Button variant="primary" icon="plus" onClick={() => setMode('save')} disabled={!curDays}>{t('Save current week')}</Button>
+    {!curDays && <div className="small dim" style={{ marginTop: 6 }}>{t('Set up some training days first.')}</div>}
+
+    {presets.length > 0 && <div className="list" style={{ marginTop: 14 }}>
+      {presets.map(p => mode === p.id
+        ? <div key={p.id} className="item" style={{ gap: 8 }}>
+            <TextField ref={nameRef} defaultValue={p.name} maxLength={40} style={{ flex: 1 }} />
+            <Button size="sm" variant="primary" onClick={() => rename(p.id)}>{t('Save')}</Button>
+          </div>
+        : <div key={p.id} className="item" {...tappable(() => load(p))}>
+            <span className="lrow-i"><Icon name="calendar" /></span>
+            <div className="grow" style={{ minWidth: 0 }}><div className="tt">{p.name}</div><div className="ss">{summarise(p.week)}</div></div>
+            <button className="iconbtn sm" aria-label={t('Update')} onClick={e => { e.stopPropagation(); overwrite(p) }}><Icon name="reset" /></button>
+            <button className="iconbtn sm" aria-label={t('Rename')} onClick={e => { e.stopPropagation(); setMode(p.id) }}><Icon name="pencil" /></button>
+            <button className="iconbtn sm" style={{ color: 'var(--red)' }} aria-label={t('Delete')} onClick={e => { e.stopPropagation(); del(p) }}><Icon name="trash" /></button>
+          </div>)}
+    </div>}
+  </>
+}
+export const weekPresetsSheet = () => ui().openSheet(close => <WeekPresetsSheet close={close} />)
+
 /* ============================ workout detail ============================ */
 function WorkoutDetail({ w, close }) {
   const noteRef = useRef(null)

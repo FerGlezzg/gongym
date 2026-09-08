@@ -6,7 +6,7 @@ import { EXDB, EXIDX } from '../lib/exercises.js'
 import { bestWeightFor } from '../lib/history.js'
 import { favIds } from '../lib/favourites.js'
 import { t, exerciseNameFor } from '../lib/i18n.js'
-import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet, exerciseDetailSheet, addToRoutineSheet } from '../sheets.jsx'
+import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet, exerciseDetailSheet, addToRoutineSheet, weekPresetsSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button, Segmented } from '../components/ui.jsx'
 import { Thumb } from '../components/Media.jsx'
@@ -68,7 +68,12 @@ export default function Plan() {
         <Button icon="sparkles" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>
         <div style={{ height: 16 }} />
       </>}
-      <h4 className="sec">{t('Week schedule')}</h4>
+      <div className="row between" style={{ marginBottom: 8 }}>
+        <h4 className="sec" style={{ margin: 0 }}>{t('Week schedule')}</h4>
+        <Button size="sm" variant="tinted" icon="folder" onClick={weekPresetsSheet}>
+          {t('Schedules')}{S.weekPresets?.length ? ' ' + S.weekPresets.length : ''}
+        </Button>
+      </div>
       <div className="list" style={{ display: 'flex', flexDirection: 'column' }}>
         {weekOrder(weekStartOf(S)).map(d => {
           const dayRoutines = [].concat(S.week[d] || []).map(id => S.routines.find(x => x.id === id)).filter(Boolean)

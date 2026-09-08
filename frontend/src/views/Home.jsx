@@ -4,9 +4,10 @@ import { useStore } from '../store/useStore.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, isoOf, weekStartOf, weekDayOffset, DAYS, DAYN } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor } from '../sheets.jsx'
+import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, workoutDetailSheet } from '../sheets.jsx'
 import { dietOf } from '../lib/nutrition.js'
 import LineChart from '../components/LineChart.jsx'
+import Heatmap from '../components/Heatmap.jsx'
 import CalorieCard from '../components/CalorieCard.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
@@ -113,6 +114,13 @@ export default function Home() {
           : <Icon name="plus" className="chev" />}
       </div>
     </div>
+
+    {S.workouts.length > 0 && (
+      <div className="card">
+        <h2>{t('Activity — last 12 months')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('by time trained')}</span></h2>
+        <Heatmap S={S} onDay={iso => { const ws = S.workouts.filter(w => w.d === iso); if (ws.length === 1) workoutDetailSheet(ws[0]); else if (ws.length) calendarSheet(iso) }} />
+      </div>
+    )}
 
     {!S.routines.length && !S.active && (
       <div className="card">
