@@ -65,12 +65,10 @@ export default function Home() {
       <div style={{ minWidth: 0 }}>
         <h1>{user ? t('Hi {0}', user.name) : 'openGym'}</h1>
         <div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-        {S.workouts.length > 0 && (
-          <div className="sub" style={{ marginTop: 3, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }} {...tappable(() => calendarSheet())}>
-            <Icon name="flame" style={{ color: 'var(--orange)', fontSize: 14 }} />
-            {t('{0} week streak', streakWeeks(S))}
-          </div>
-        )}
+        <div className="sub" style={{ marginTop: 3, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }} {...tappable(() => calendarSheet())}>
+          <Icon name="flame" style={{ color: 'var(--orange)', fontSize: 14 }} />
+          {t('{0} week streak', streakWeeks(S))}
+        </div>
       </div>
       <div className="row" style={{ gap: 8, flex: 'none' }}>
         {/* The gym check-in cards (QR membership codes) used to be a full row below; this
@@ -115,12 +113,11 @@ export default function Home() {
       </div>
     </div>
 
-    {S.workouts.length > 0 && (
-      <div className="card">
-        <h2>{t('Activity — last 12 months')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('by time trained')}</span></h2>
-        <Heatmap S={S} onDay={iso => { const ws = S.workouts.filter(w => w.d === iso); if (ws.length === 1) workoutDetailSheet(ws[0]); else if (ws.length) calendarSheet(iso) }} />
-      </div>
-    )}
+    <div className="card">
+      <h2>{t('Activity — last 12 months')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('by time trained')}</span></h2>
+      <Heatmap S={S} onDay={iso => { const ws = S.workouts.filter(w => w.d === iso); if (ws.length === 1) workoutDetailSheet(ws[0]); else if (ws.length) calendarSheet(iso) }} />
+    </div>
+
 
     {!S.routines.length && !S.active && (
       <div className="card">
