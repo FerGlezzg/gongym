@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_EVENT_TYPES, eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, RECUR } from './events.js'
+import { DEFAULT_EVENT_TYPES, eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, RECUR, eventNotifTimes } from './events.js'
 
 describe('DEFAULT_EVENT_TYPES', () => {
   it('includes surf and a zero-MET fallback', () => {
@@ -71,5 +71,31 @@ describe('expandRecurrence', () => {
   })
   it('clamps a month-end day to the last day of a shorter month', () => {
     expect(expandRecurrence('2026-01-31', 'monthly').slice(0, 3)).toEqual(['2026-01-31', '2026-02-28', '2026-03-31'])
+  })
+})
+
+describe('eventNotifTimes', () => {
+  const local = (y, mo, d, h, m) => new Date(y, mo - 1, d, h, m).getTime()
+  it('is empty without a notify config', () => {
+    expect(eventNotifTimes({ d: '2026-09-15', start: '18:00' })).toEqual([])
+  })
+  it('fires `before` relative to the start time', () => {
+    const [b] = eventNotifTimes({ d: '2026-09-15', start: '18:00', notify: { before: 60 } })
+    expect(b.kind).toBe('before')
+    expect(b.at.getTime()).toBe(local(2026, 9, 15, 17, 0))
+  })
+  it('rolls `before` back across midnight', () => {
+    const [b] = eventNotifTimes({ d: '2026-09-15', start: '00:30', notify: { before: 120 } })
+    expect(b.at.getTime()).toBe(local(2026, 9, 14, 22, 30))
+  })
+  it('drops `before` when there is no start time', () => {
+    expect(eventNotifTimes({ d: '2026-09-15', notify: { before: 60 } })).toEqual([])
+  })
+  it('fires `allDay` at the daily time (default 08:00, or the given one)', () => {
+    expect(eventNotifTimes({ d: '2026-09-15', notify: { allDay: true } })[0].at.getTime()).toBe(local(2026, 9, 15, 8, 0))
+    expect(eventNotifTimes({ d: '2026-09-15', notify: { allDay: true } }, '07:15')[0].at.getTime()).toBe(local(2026, 9, 15, 7, 15))
+  })
+  it('can emit both', () => {
+    expect(eventNotifTimes({ d: '2026-09-15', start: '18:00', notify: { before: 0, allDay: true } }).map(x => x.kind)).toEqual(['before', 'allDay'])
   })
 })

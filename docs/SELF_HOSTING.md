@@ -206,10 +206,15 @@ in this archive — and unreadable without the secret next to them, like everyth
 
 ## 7. Notifications
 
-openGym can push two kinds of alert to your phone/desktop, even when the app isn't open:
-rest-timer-over, and a reminder on days you have a workout planned but haven't logged one yet.
-Turn it on per-profile in **Settings → Notifications** (requires a signed-in passkey profile and
-HTTPS — see section 3).
+openGym can push three kinds of alert to your phone/desktop, even when the app isn't open:
+rest-timer-over, a reminder on days you have a workout planned but haven't logged one yet, and
+per-event reminders (a race, a match — set on the event itself, "notify X before" and/or an
+all-day one). Turn push on per-profile in **Settings → Notifications** (requires a signed-in
+passkey profile and HTTPS — see section 3).
+
+Push has no catch-up: the server checks the current minute and sends, so if it is stopped when
+a reminder is due, that one is missed. The Android/iOS app schedules the same reminders as
+on-device local notifications, which are not affected.
 
 No setup needed server-side, and nothing to configure per timezone: VAPID keys are generated on
 first run and saved to `./data/vapid.json`, and each user's browser reports its own timezone

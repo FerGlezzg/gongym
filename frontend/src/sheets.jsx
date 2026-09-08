@@ -3,7 +3,7 @@ import { useStore } from './store/useStore.js'
 import { useUI } from './store/useUI.js'
 import { EXDB, EXIDX, BODYPARTS, isCardio, isBodyweightEq, allExercises, equipmentOf, smOf, matchExercise, exOr } from './lib/exercises.js'
 import { activeProfile, exAvailable, ALL_EQUIPMENT, newProfile } from './lib/equipment.js'
-import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, isoOf, uid, exCount, DAYN, DAYS, weekOrder, weekStartOf, weekDayOffset, MONTHS_LONG, ACCENTS } from './lib/format.js'
+import { fmtDate, fmtNum, fmtVol, fmtDur, durPart, todayISO, isoOf, uid, exCount, DAYN, DAYS, weekOrder, weekStartOf, weekDayOffset, MONTHS_LONG, ACCENTS, localTZ } from './lib/format.js'
 import { lastEntryFor, bestWeightFor, bestWeightForEntry, buildSets, effectiveRoutineIds, workoutVolume, setsDone, setsDoneActive, setUnitsTotal, lastBW, supersetUnits, unitOf, setLabel, defaultConfig, cleanupSg, modeOf, effortOf, EFFORT, capEffort, stepEffort, isBw, isPerSide, sideReps, workSetsDone, applyIntensifierPlan, MAX_PLANNED_WARMUPS, NOTE_MAX } from './lib/history.js'
 import { usesBar, barWeightFor, defaultBarWeight, hasBarOverride } from './lib/bar.js'
 import { toScale, rirOf, EFFORT_PRESETS, effortColor } from './lib/effort.js'
@@ -27,7 +27,7 @@ import { estimate1RM, best1RM, is1RMRecord, REP_CAP } from './lib/onerm.js'
 import { exerciseHistory } from './lib/exercise-history.js'
 import { nextPrescription, applyPrescription, policyFor, defaultIncrement, POLICIES_FOR, POLICY_NAME, POLICY_DESC, MAX_BW_SETS, weightIncrement } from './lib/progression.js'
 import { normalizeRepRange } from './lib/rep-range.js'
-import { MOBILE, shareExport } from './lib/mobile.js'
+import { MOBILE, shareExport, syncReminder } from './lib/mobile.js'
 import { buildCompletedWorkout } from './lib/finish-workout.js'
 import { isWarmupRow } from './lib/workout-model.js'
 import { nextUnfinishedUnit } from './lib/supersetFlow.js'
@@ -38,7 +38,7 @@ import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
 import { dietOf, scaleFood, entryAmountLabel, bodyweightKgAt, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
-import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, RECUR } from './lib/events.js'
+import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, RECUR, timeLike, NOTIFY_BEFORE } from './lib/events.js'
 import { loadFoods, foodsReady, foodName, searchFoods, CATEGORY_LABEL, FOOD_CATEGORIES } from './lib/foods.js'
 import { lookupBarcode } from './lib/off.js'
 import { scanBarcode, importCodeFromImage } from './lib/scan.js'
@@ -1578,7 +1578,7 @@ function DayHub({ iso, close }) {
       {workouts.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { close(); workoutDetailSheet(w) }} />)}
       {events.map(e => <div key={e.id} className="item" {...tappable(() => { close(); eventSheet(iso, e) })}>
         <span className="lrow-i" style={{ fontSize: 18 }}>{e.emoji || '📅'}</span>
-        <div className="grow"><div className="tt">{e.name}</div><div className="ss">{[eventTimeLabel(e), e.series ? t('repeats') : ''].filter(Boolean).join(' · ') || t('Event')}</div></div>
+        <div className="grow"><div className="tt">{e.name}</div><div className="ss">{[eventTimeLabel(e), e.series ? t('repeats') : '', e.notify ? '🔔' : ''].filter(Boolean).join(' · ') || t('Event')}</div></div>
         <Icon name="chevronRight" className="chev" />
       </div>)}
     </div>}
@@ -1597,7 +1597,6 @@ export const dayHubSheet = iso => ui().openSheet(close => <DayHub iso={iso} clos
 // an intensity (MET for built-ins, kcal/hour for ones the user made); with a start+end the
 // event shades the heatmap and feeds the day's estimated expenditure. Stored in S.events.
 const EVENT_TYPE_EMOJI = ['⚽', '🏀', '🎾', '🏐', '🏈', '🏓', '🏃', '🚴', '🏊', '🏄', '🥊', '🧗', '⛷️', '🛹', '🚣', '🤸', '🧘', '💃', '🥾', '⛳', '🎳', '📅']
-const timeLike = v => /^\d{1,2}:\d{2}$/.test(v || '')
 
 function EventSheet({ iso, event, close }) {
   const st = useStore(s => s.S)
@@ -1617,6 +1616,8 @@ function EventSheet({ iso, event, close }) {
   const [start, setStart] = useState(event?.start || '')
   const [end, setEnd] = useState(event?.end || '')
   const [repeat, setRepeat] = useState('none')
+  const [notifyBefore, setNotifyBefore] = useState(event?.notify?.before ?? null)
+  const [notifyAllDay, setNotifyAllDay] = useState(!!event?.notify?.allDay)
   // new-type form
   const [tName, setTName] = useState('')
   const [tEmoji, setTEmoji] = useState('📅')
@@ -1629,6 +1630,17 @@ function EventSheet({ iso, event, close }) {
   }
   const kcal = eventKcal({ met, kcalPerHour: kph, start, end }, bwKg)
 
+  const before = start && timeLike(start) ? notifyBefore : null   // "before" needs a start time
+  const notify = (before != null || notifyAllDay) ? { before, allDay: notifyAllDay } : undefined
+
+  const afterNotifySet = () => {
+    if (!notify) return
+    if (MOBILE) syncReminder(S(), true).catch(() => {})
+    else if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      toast(t('Turn on notifications in Settings to get event reminders.'))
+    }
+  }
+
   const save = () => {
     const nm = name.trim()
     if (!nm) { toast(t('Give it a name')); return }
@@ -1637,18 +1649,23 @@ function EventSheet({ iso, event, close }) {
       name: nm, emoji,
       start: start || null, end: end || null,
       met: met > 0 ? met : null, kcalPerHour: kph > 0 ? kph : null,
+      notify: notify || null,
     }
     if (event) {
-      update(s => { const e = s.events.find(x => x.id === event.id); if (e) Object.assign(e, row, { d: date }) })
-      close(); toast(t('Saved')); return
+      update(s => {
+        const e = s.events.find(x => x.id === event.id); if (e) Object.assign(e, row, { d: date })
+        if (notify && !s.reminder?.tz) s.reminder = { ...(s.reminder || {}), tz: localTZ() }
+      })
+      close(); toast(t('Saved')); afterNotifySet(); return
     }
     const dates = repeat === 'none' ? [date] : expandRecurrence(date, repeat)
     const series = dates.length > 1 ? uid() : null
     update(s => {
       s.events = s.events || []
       dates.forEach(dd => s.events.push({ id: uid(), d: dd, ...row, ...(series ? { series } : {}) }))
+      if (notify && !s.reminder?.tz) s.reminder = { ...(s.reminder || {}), tz: localTZ() }
     })
-    close(); toast(dates.length > 1 ? t('{0} events added', dates.length) : t('Event added'))
+    close(); toast(dates.length > 1 ? t('{0} events added', dates.length) : t('Event added')); afterNotifySet()
   }
   const delOne = () => { update(s => { s.events = (s.events || []).filter(x => x.id !== event.id) }); close(); toast(t('Removed')) }
   const delSeries = () => {
@@ -1702,6 +1719,16 @@ function EventSheet({ iso, event, close }) {
     {kcal > 0 && <div className="small dim" style={{ marginTop: 8 }}>
       {eventMinutes({ start, end })} min · ≈ {fmtNum(kcal)} {t('kcal')} — {t('added to the day’s expenditure')}
     </div>}
+
+    <h4 className="sec" style={{ marginTop: 14 }}>{t('Notifications')}</h4>
+    {timeLike(start)
+      ? <SelectRow icon="bell" title={t('Notify before')} value={String(notifyBefore ?? 'off')}
+          onChange={v => setNotifyBefore(v === 'off' ? null : +v)}
+          options={[{ value: 'off', label: t('Off') }, ...NOTIFY_BEFORE.map(o => ({ value: String(o.value), label: t(o.label) }))]} />
+      : <div className="small dim" style={{ padding: '2px 2px 6px' }}>{t('Set a start time to be notified before the event.')}</div>}
+    <Row icon="bell" title={t('All-day notification')} subtitle={t('A reminder the morning of the event')}>
+      <Switch checked={notifyAllDay} onChange={setNotifyAllDay} />
+    </Row>
 
     {!event && <div style={{ marginTop: 6 }}>
       <SelectRow icon="reset" title={t('Repeat')} value={repeat} onChange={setRepeat}

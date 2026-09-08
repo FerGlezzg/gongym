@@ -62,6 +62,39 @@ export function eventTimeLabel(ev) {
   return ev && ev.start && ev.end ? `${ev.start} – ${ev.end}` : ''
 }
 
+export const timeLike = v => /^\d{1,2}:\d{2}$/.test(v || '')
+
+// --- notifications -------------------------------------------------------------
+// An event can nudge you: `notify: { before: minutes|null, allDay: boolean }`. `before`
+// fires that long before the start time; `allDay` fires the morning of the event day.
+export const NOTIFY_BEFORE = [
+  { value: 0, label: 'At start' },
+  { value: 15, label: '15 min before' },
+  { value: 30, label: '30 min before' },
+  { value: 60, label: '1 hour before' },
+  { value: 120, label: '2 hours before' },
+]
+
+/**
+ * The local wall-clock times an event's notifications should fire at.
+ * @returns {Array<{ kind: 'before'|'allDay', at: Date }>}
+ */
+export function eventNotifTimes(ev, dailyTime = '08:00') {
+  const nf = ev && ev.notify
+  if (!nf || !ev.d) return []
+  const [y, mo, d] = String(ev.d).split('-').map(Number)
+  const out = []
+  if (nf.before != null && timeLike(ev.start)) {
+    const [h, m] = ev.start.split(':').map(Number)
+    out.push({ kind: 'before', at: new Date(y, mo - 1, d, h, m - nf.before) })   // negative minute rolls back
+  }
+  if (nf.allDay) {
+    const [h, m] = (timeLike(dailyTime) ? dailyTime : '08:00').split(':').map(Number)
+    out.push({ kind: 'allDay', at: new Date(y, mo - 1, d, h, m) })
+  }
+  return out
+}
+
 // Repeating an event just generates that many independent rows ahead of time — no
 // recurrence engine, every occurrence is a normal event that can be edited or deleted on
 // its own (or as a series, via the shared `series` id). `count` is how far ahead to fill.

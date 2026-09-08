@@ -12,6 +12,7 @@
 import { t } from './i18n-core.js'
 import { isoOf, todayISO } from './format.js'
 import { effectiveRoutineIds } from './history.js'
+import { eventNotifTimes } from './events.js'
 
 export const MOBILE = import.meta.env.VITE_MOBILE === '1'
 
@@ -125,23 +126,58 @@ export function buildReminderNotifications(S, now = new Date()) {
   return notifications
 }
 
-// (Re)schedule the workout-day reminder: one one-off notification per future calendar date in
-// the bounded window. Cheap enough to run after any state change — the plan or the reminder time
-// may just have been edited. `interactive` gates the OS permission prompt to the Settings toggle;
-// a background resync never pops a dialog.
+// Per-event notifications (S.events[].notify). Same one-off-in-a-window model as the daily
+// reminder, its own id range, and a hard cap so the app stays well under iOS's 64-pending
+// limit alongside the workout reminders. The allDay one is `ongoing` — pinned on Android.
+export const EVENT_ID_BASE = 20000
+export const EVENT_NOTIF_MAX = 24
+const EVENT_NOTIF_WINDOW_DAYS = 35
+
+export function buildEventNotifications(S, now = new Date()) {
+  const events = Array.isArray(S?.events) ? S.events : []
+  if (!events.length) return []
+  const dailyTime = S?.reminder?.time || '08:00'
+  const horizon = new Date(now); horizon.setDate(horizon.getDate() + EVENT_NOTIF_WINDOW_DAYS)
+  const pending = []
+  for (const ev of events) {
+    for (const { kind, at } of eventNotifTimes(ev, dailyTime)) {
+      if (at <= now || at > horizon) continue
+      pending.push({
+        kind, at,
+        title: `${ev.emoji || '📅'} ${ev.name}`,
+        body: kind === 'before' ? t('Starts at {0}', ev.start) : t('All day'),
+      })
+    }
+  }
+  pending.sort((a, b) => a.at - b.at)
+  return pending.slice(0, EVENT_NOTIF_MAX).map((n, i) => ({
+    id: EVENT_ID_BASE + i,
+    title: n.title,
+    body: n.body,
+    schedule: { at: n.at, allowWhileIdle: true },
+    ...(n.kind === 'allDay' ? { ongoing: true, autoCancel: false } : {}),
+  }))
+}
+
+// (Re)schedule the workout-day reminder and any event notifications: one one-off per future
+// date in a bounded window. Cheap enough to run after any state change — the plan, the
+// reminder time or an event may just have been edited. `interactive` gates the OS permission
+// prompt to a user action (Settings toggle, saving an event with a reminder).
 export async function syncReminder(S, interactive = false) {
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications')
     await LocalNotifications.cancel({ notifications: [
       ...LEGACY_REMINDER_IDS,
       ...Array.from({ length: REMINDER_WINDOW_DAYS }, (_, d) => ({ id: REMINDER_ID_BASE + d })),
+      ...Array.from({ length: EVENT_NOTIF_MAX }, (_, i) => ({ id: EVENT_ID_BASE + i })),
     ] }).catch(() => {})
-    const r = S.reminder
-    if (!r?.on) return true
+    const wantsDaily = !!S.reminder?.on
+    const eventNotifs = buildEventNotifications(S)
+    if (!wantsDaily && !eventNotifs.length) return true
     let perm = await LocalNotifications.checkPermissions()
     if (perm.display !== 'granted' && interactive) perm = await LocalNotifications.requestPermissions()
     if (perm.display !== 'granted') return false
-    const notifications = buildReminderNotifications(S)
+    const notifications = [...(wantsDaily ? buildReminderNotifications(S) : []), ...eventNotifs]
     if (notifications.length) await LocalNotifications.schedule({ notifications })
     return true
   } catch (e) { return false }

@@ -16,7 +16,7 @@ import * as coachJobs from './coach/jobs.js';
 import { coachRoutes } from './coach/routes.js';
 import { startCadence } from './coach/cadence.js';
 import { startWarmup } from './coach/warmup.js';
-import { dayReminderPush, restTimerPush, testPush } from './push-messages.js';
+import { dayReminderPush, restTimerPush, testPush, eventPush } from './push-messages.js';
 import { verifyError } from './verify-error.js';
 
 const PORT = +(process.env.PORT || 3000);
@@ -227,22 +227,79 @@ function userNow(tz) {
     return { date, hhmm: `${g('hour')}:${g('minute')}`, weekday: new Date(date + 'T12:00:00Z').getUTCDay() };
   } catch { return null; } // unknown/invalid tz string — skip this user rather than guess
 }
+// Fire slots for an event's `notify` config, as { date, hhmm } strings in the USER's local
+// wall-clock — the same terms as userNow() and as ev.d / ev.start. String arithmetic only,
+// so the server's own timezone never enters the calculation.
+const pad2 = n => String(n).padStart(2, '0');
+const looksLikeTime = v => /^\d{1,2}:\d{2}$/.test(v || '');
+const normTime = v => { const [h, m] = String(v).split(':'); return `${pad2(+h)}:${pad2(+m)}`; };
+const shiftIsoDay = (iso, days) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth() + 1)}-${pad2(dt.getUTCDate())}`;
+};
+function eventNotifSlots(ev, dailyTime) {
+  const nf = ev && ev.notify;
+  if (!nf || !ev.d) return [];
+  const out = [];
+  if (nf.before != null && looksLikeTime(ev.start)) {
+    const [h, m] = ev.start.split(':').map(Number);
+    let total = h * 60 + m - nf.before, dayShift = 0;
+    while (total < 0) { total += 1440; dayShift -= 1; }
+    out.push({ kind: 'before', date: dayShift ? shiftIsoDay(ev.d, dayShift) : ev.d, hhmm: `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}` });
+  }
+  if (nf.allDay) {
+    out.push({ kind: 'allDay', date: ev.d, hhmm: normTime(looksLikeTime(dailyTime) ? dailyTime : '08:00') });
+  }
+  return out;
+}
+
 setInterval(() => {
   for (const user of db.users) {
     if (!db.subs.some(s => s.userId === user.id)) continue;
     const S = readState(user.id);
-    if (!S?.reminder?.on) continue;
-    const now = userNow(S.reminder.tz || 'UTC');
-    if (!now || S.reminder.time !== now.hhmm) continue;
-    if (user.lastReminder === now.date) continue;
-    if ((S.workouts || []).some(w => w.d === now.date)) continue;
-    const rid = effectiveRoutineId(S, now.date);
-    if (!rid) continue; // rest day — nothing planned
-    const routine = (S.routines || []).find(r => r.id === rid);
-    console.log('reminder firing', user.id, rid);
-    user.lastReminder = now.date;
-    saveDb();
-    sendPush(user.id, dayReminderPush(S.lang, routine));
+    if (!S) continue;
+    const now = userNow(S.reminder?.tz || 'UTC');
+    if (!now) continue;
+
+    // Workout-day reminder — one per user per day, at their chosen time.
+    if (S.reminder?.on && S.reminder.time === now.hhmm && user.lastReminder !== now.date
+        && !(S.workouts || []).some(w => w.d === now.date)) {
+      const rid = effectiveRoutineId(S, now.date);
+      if (rid) {
+        const routine = (S.routines || []).find(r => r.id === rid);
+        console.log('reminder firing', user.id, rid);
+        user.lastReminder = now.date;
+        saveDb();
+        sendPush(user.id, dayReminderPush(S.lang, routine));
+      }
+    }
+
+    // Per-event notifications (S.events[].notify), deduped in user.eventNotifs.
+    const events = S.events || [];
+    if (events.length) {
+      const daily = S.reminder?.time || '08:00';
+      user.eventNotifs = user.eventNotifs || [];
+      for (const ev of events) {
+        for (const { kind, date, hhmm } of eventNotifSlots(ev, daily)) {
+          if (date !== now.date || hhmm !== now.hhmm) continue;
+          const key = ev.id + ':' + kind;
+          if (user.eventNotifs.includes(key)) continue;
+          user.eventNotifs.push(key);
+          saveDb();
+          console.log('event notif firing', user.id, key);
+          sendPush(user.id, eventPush(S.lang, ev, kind));
+        }
+      }
+      // Forget keys whose event is gone or fired more than 2 days ago.
+      const cutoff = shiftIsoDay(now.date, -2);
+      const live = new Set(events.filter(e => e.d >= cutoff).flatMap(e => [e.id + ':before', e.id + ':allDay']));
+      if (user.eventNotifs.some(k => !live.has(k))) {
+        user.eventNotifs = user.eventNotifs.filter(k => live.has(k));
+        saveDb();
+      }
+    }
   }
 // Checked every 10s (not 60s) — ticks aren't aligned to the top of the minute, so a 60s
 // interval could sit on your target minute for up to 59s before noticing. 10s caps that at ~9s.

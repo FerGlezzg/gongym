@@ -6,6 +6,8 @@ const COPY = {
     dayFallbackTitle: 'Workout planned today',
     dayRoutineSuffix: 'today',
     dayBody: "It's on your plan — let's go 💪",
+    eventBefore: start => `Starts at ${start}`,
+    eventToday: 'All day',
   },
   'pt-BR': {
     restTitle: 'Descanso terminado 💪',
@@ -14,6 +16,8 @@ const COPY = {
     dayFallbackTitle: 'Treino planejado para hoje',
     dayRoutineSuffix: 'hoje',
     dayBody: 'Está no seu plano — vamos treinar 💪',
+    eventBefore: start => `Começa às ${start}`,
+    eventToday: 'O dia todo',
   },
 };
 
@@ -36,5 +40,14 @@ export function dayReminderPush(lang, routine) {
       : copy.dayFallbackTitle,
     body: copy.dayBody,
     tag: 'day-reminder',
+  };
+}
+
+export function eventPush(lang, ev, kind) {
+  const copy = copyFor(lang);
+  return {
+    title: `${ev.emoji || '📅'} ${ev.name}`,
+    body: kind === 'before' && ev.start ? copy.eventBefore(ev.start) : copy.eventToday,
+    tag: 'event-' + ev.id,
   };
 }

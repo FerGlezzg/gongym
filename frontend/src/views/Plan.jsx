@@ -179,7 +179,7 @@ export default function Plan() {
               <span className="lrow-i" style={{ fontSize: 18 }}>{e.emoji || '📅'}</span>
               <div className="grow" style={{ minWidth: 0 }}>
                 <div className="tt">{e.name}</div>
-                <div className="ss">{[eventTimeLabel(e), kcal > 0 ? '≈ ' + fmtNum(kcal) + ' ' + t('kcal') : '', e.series ? t('repeats') : ''].filter(Boolean).join(' · ') || t('Event')}</div>
+                <div className="ss">{[eventTimeLabel(e), kcal > 0 ? '≈ ' + fmtNum(kcal) + ' ' + t('kcal') : '', e.series ? t('repeats') : '', e.notify ? '🔔' : ''].filter(Boolean).join(' · ') || t('Event')}</div>
               </div>
               <Icon name="chevronRight" className="chev" />
             </div>
