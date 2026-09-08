@@ -2,8 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { fmtNum, fmtDate, todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { dietOf, daySeries, MEAL_SLOTS } from '../lib/nutrition.js'
-import { dietGoalSheet, addFoodSheet } from '../sheets.jsx'
+import { dietOf, daySeries, entryAmountLabel, MEAL_SLOTS } from '../lib/nutrition.js'
+import { dietGoalSheet, addFoodSheet, nutritionEntrySheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
@@ -11,17 +11,6 @@ import SwipeToDelete from '../components/SwipeToDelete.jsx'
 import CalorieCard from '../components/CalorieCard.jsx'
 
 const SLOT_LABEL = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' }
-
-// How much of the food this row logged — "200 g", "2 rebanada (56 g)" or "×2".
-// Older rows only have `qty`.
-function amountLabel(r) {
-  if (r.unit === 'g' && r.amount > 0) return fmtNum(r.amount) + ' g'
-  if (r.unit && r.unit !== 'serving') {
-    return fmtNum(r.amount) + ' ' + r.unit + (r.grams ? ' (' + fmtNum(r.grams) + ' g)' : '')
-  }
-  const n = r.amount ?? r.qty
-  return n && n !== 1 ? '×' + fmtNum(n) : ''
-}
 
 // Diet = log today's intake and see it against the goal and the estimated burn.
 // Deep charts and history live in Stats → Diet.
@@ -64,12 +53,12 @@ export default function Diet() {
             <h3 style={{ margin: 0, fontSize: 15 }}>{t(SLOT_LABEL[slot])}</h3>
             <span className="dim small">{kcal ? fmtNum(Math.round(kcal)) + ' ' + t('kcal') : ''}</span>
           </div>
-          {rows.map(r => <SwipeToDelete key={r.id} onDelete={() => removeEntry(r.id)} deleteLabel={t('Remove')}>
-            <div className="row between" style={{ padding: '7px 0', borderBottom: 'var(--hair) solid var(--sep)' }}>
+          {rows.map(r => <SwipeToDelete key={r.id} onDelete={() => removeEntry(r.id)} deleteLabel={t('Remove')} onClick={() => nutritionEntrySheet(r)}>
+            <div className="row between" style={{ padding: '7px 0', borderBottom: 'var(--hair) solid var(--sep)', cursor: 'pointer' }}>
               <span className="small" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {r.name}{amountLabel(r) ? <span className="dim"> {amountLabel(r)}</span> : null}
+                {r.name}{entryAmountLabel(r, fmtNum) ? <span className="dim"> {entryAmountLabel(r, fmtNum)}</span> : null}
               </span>
-              <span className="small dim" style={{ flex: 'none', marginLeft: 8 }}>{fmtNum(Math.round(r.kcal || 0))}</span>
+              <span className="small dim row" style={{ flex: 'none', marginLeft: 8, gap: 4 }}>{fmtNum(Math.round(r.kcal || 0))}<Icon name="chevronRight" style={{ fontSize: 13, opacity: 0.5 }} /></span>
             </div>
           </SwipeToDelete>)}
           <button className="btn ghost sm" style={{ marginTop: 8 }} onClick={() => addFoodSheet(slot)}>

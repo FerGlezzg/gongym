@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW, setsDoneActive } from '../lib/history.js'
-import { fmtNum, fmtDate, todayISO, isoOf, weekKey, weekStartOf, weekDayOffset, DAYS, DAYN } from '../lib/format.js'
+import { fmtNum, fmtDate, todayISO, isoOf, weekStartOf, weekDayOffset, DAYS, DAYN } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor } from '../sheets.jsx'
 import { dietOf } from '../lib/nutrition.js'
@@ -54,9 +54,6 @@ export default function Home() {
   const wkEnd = new Date(wkStart); wkEnd.setDate(wkStart.getDate() + 6)
   const wkLabel = weekOffset === 0 ? t('This week') : `${wkStart.getDate()} ${wkStart.toLocaleDateString(dateLocale(), { month: 'short' })} – ${wkEnd.getDate()} ${wkEnd.toLocaleDateString(dateLocale(), { month: 'short' })}`
 
-  const wThisWeek = S.workouts.filter(w => weekKey(w.d, ws) === weekKey(todayISO(), ws)).length
-  // Days scheduled, not routines — a combined day counts as 1, matching wThisWeek (one w).
-  const plannedPerWeek = Object.values(S.week).filter(ids => ids?.length).length
   const bwPoints = S.bodyweight.slice(-30).map(b => ({ t: b.t || new Date(b.d).getTime(), y: b.w, d: b.d }))
 
   // today's session shown right under the week strip
@@ -64,13 +61,17 @@ export default function Home() {
 
   return <div className="narrow">
     <div className="hdr">
-      <div><h1>{user ? t('Hi {0}', user.name) : 'openGym'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
-      <div className="row" style={{ gap: 8, flex: 'none' }}>
+      <div style={{ minWidth: 0 }}>
+        <h1>{user ? t('Hi {0}', user.name) : 'openGym'}</h1>
+        <div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div>
         {S.workouts.length > 0 && (
-          <button className="iconbtn pill" onClick={() => calendarSheet()} aria-label={t('{0} week streak', streakWeeks(S))} title={t('{0} week streak', streakWeeks(S))}>
-            <Icon name="flame" style={{ color: 'var(--orange)' }} />{streakWeeks(S)}
-          </button>
+          <div className="sub" style={{ marginTop: 3, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }} {...tappable(() => calendarSheet())}>
+            <Icon name="flame" style={{ color: 'var(--orange)', fontSize: 14 }} />
+            {t('{0} week streak', streakWeeks(S))}
+          </div>
         )}
+      </div>
+      <div className="row" style={{ gap: 8, flex: 'none' }}>
         {/* The gym check-in cards (QR membership codes) used to be a full row below; this
             is the way in now, folded away with the same "Gym check-in" switch in Settings. */}
         {S.checkIn !== false && (
@@ -157,18 +158,5 @@ export default function Home() {
 
     {/* Calories today vs goal — the same summary card as the Diet screen; taps through to it. */}
     {(dietOf(S).kcalGoal || (S.nutrition || []).length > 0) && <CalorieCard onClick={() => nav('/diet')} />}
-
-    <div className="card tappable" style={{ cursor: 'pointer' }} {...tappable(() => calendarSheet())}>
-      <div className="row between">
-        <div>
-          <div className="row" style={{ gap: 7, fontSize: 22, fontWeight: 600, letterSpacing: '-.021em' }}>
-            <Icon name="flame" style={{ color: 'var(--orange)' }} />
-            {t('{0} week streak', streakWeeks(S))}
-          </div>
-          <div className="muted small" style={{ marginTop: 2 }}>{wThisWeek}{plannedPerWeek ? ' / ' + plannedPerWeek : ''} {t('this week')} · {t(S.workouts.length === 1 ? '{0} workout total' : '{0} workouts total', S.workouts.length)}</div>
-        </div>
-        <Icon name="calendar" className="chev" style={{ fontSize: 20 }} />
-      </div>
-    </div>
   </div>
 }

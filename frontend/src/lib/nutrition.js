@@ -190,6 +190,21 @@ export function weekAverages(S, days = 7, { now = Date.now() } = {}) {
 }
 
 /**
+ * Short label for how much of a food a logged row represents: "200 g", "2 rebanada (56 g)"
+ * or "×2". Rows written before the amount/unit fields only carry `qty`. `fmt` formats the
+ * numbers (pass fmtNum from the UI; the default is plain).
+ */
+export function entryAmountLabel(row, fmt = n => String(Math.round(n * 10) / 10)) {
+  if (!row) return ''
+  if (row.unit === 'g' && row.amount > 0) return fmt(row.amount) + ' g'
+  if (row.unit && row.unit !== 'serving' && row.amount != null) {
+    return fmt(row.amount) + ' ' + row.unit + (row.grams ? ' (' + fmt(row.grams) + ' g)' : '')
+  }
+  const n = row.amount ?? row.qty
+  return n && n !== 1 ? '×' + fmt(n) : ''
+}
+
+/**
  * Scale a food's reference values into a loggable payload.
  * @param {object} food  kcal/p/c/f on the food's reference amount.
  * @param {number} amount  servings when basis is 'serving', grams when basis is 'g'.

@@ -1332,4 +1332,7 @@ export default {
   'All exercises': 'All exercises',
   'No favourite exercises yet.': 'No favourite exercises yet.',
   'Tap the star on an exercise to pin it here.': 'Tap the star on an exercise to pin it here.',
+  'Remove from log': 'Remove from log',
+  'Removed': 'Removed',
+  'The food is no longer in the catalogue.': 'The food is no longer in the catalogue.',
 }

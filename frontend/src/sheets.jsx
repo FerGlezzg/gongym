@@ -37,7 +37,7 @@ import { isFav, toggleFav, sortFavouritesFirst } from './lib/favourites.js'
 import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
-import { dietOf, scaleFood, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
+import { dietOf, scaleFood, entryAmountLabel, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
 import { loadFoods, foodsReady, foodName, searchFoods, CATEGORY_LABEL, FOOD_CATEGORIES } from './lib/foods.js'
 import { lookupBarcode } from './lib/off.js'
 import { scanBarcode, importCodeFromImage } from './lib/scan.js'
@@ -2451,3 +2451,58 @@ function SLOT_LABEL_FOR(slot) {
   return { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' }[slot] || 'Snack'
 }
 export const addFoodSheet = slot => ui().openSheet(close => <AddFoodSheet slot={slot} close={close} />)
+
+/* ============================ diet: logged item detail ============================ */
+// Tap a meal row → what it was, how much, its nutrition, the reference food behind it,
+// and a way to remove it if it was a mistake.
+function NutritionEntrySheet({ entry, close }) {
+  const st = useStore(s => s.S)
+  const [ref, setRef] = useState(() => (st.foods || []).find(f => f.id === entry.foodId) || null)
+  useEffect(() => {
+    if (ref || !entry.foodId) return
+    let live = true
+    loadFoods().then(list => { if (live) setRef(list.find(f => f.id === entry.foodId) || null) })
+    return () => { live = false }
+  }, [entry.foodId, ref])
+
+  const del = () => {
+    update(s => { s.nutrition = (s.nutrition || []).filter(r => r.id !== entry.id) })
+    close()
+    toast(t('Removed'))
+  }
+  const macro = (label, v, unit = 'g') => v ? <div className="mrow">
+    <span className="nm">{t(label)}</span><span className="v" style={{ minWidth: 60 }}>{fmtNum(Math.round(v * 10) / 10)} {unit}</span>
+  </div> : null
+  const refBasis = ref && (ref.basis === 'serving' || !ref.en) ? 'serving' : 'g'
+  const refName = ref && ref.en ? foodName(ref) : null
+
+  return <>
+    <h3 style={{ marginBottom: 2 }}>{entry.name}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>
+      {t(SLOT_LABEL_FOR(entry.slot))} · {fmtDate(entry.d, true)}{entryAmountLabel(entry, fmtNum) ? ' · ' + entryAmountLabel(entry, fmtNum) : ''}
+    </div>
+
+    <h4 className="sec">{t('Logged')}</h4>
+    <div className="stat-v" style={{ marginBottom: 4 }}>{fmtNum(Math.round(entry.kcal || 0))} {t('kcal')}</div>
+    {macro('Protein', entry.p)}
+    {macro('Carbs', entry.c)}
+    {macro('Fat', entry.f)}
+
+    {ref && <>
+      <h4 className="sec" style={{ marginTop: 16 }}>{refBasis === 'g' ? t('Per 100 g') : t('Per serving')}</h4>
+      <div className="small dim" style={{ marginBottom: 6 }}>
+        {refName && refName !== entry.name ? refName : ''}
+        {ref.cat && CATEGORY_LABEL[ref.cat] ? (refName && refName !== entry.name ? ' · ' : '') + t(CATEGORY_LABEL[ref.cat]) : ''}
+      </div>
+      {macro('Calories', ref.kcal, t('kcal'))}
+      {macro('Protein', ref.p)}
+      {macro('Carbs', ref.c)}
+      {macro('Fat', ref.f)}
+    </>}
+    {!ref && entry.foodId && <div className="small dim" style={{ marginTop: 12 }}>{t('The food is no longer in the catalogue.')}</div>}
+
+    <div style={{ height: 16 }} />
+    <Button variant="danger" icon="trash" onClick={del}>{t('Remove from log')}</Button>
+  </>
+}
+export const nutritionEntrySheet = entry => ui().openSheet(close => <NutritionEntrySheet entry={entry} close={close} />)

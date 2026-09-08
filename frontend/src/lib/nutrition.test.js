@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   dietOf, dayTotals, ageFrom, bmrMifflin, tdee, workoutKcal, bodyweightKgAt,
-  estimatedExpenditure, daySeries, weekAverages, scaleFood, DIET_DEFAULT,
+  estimatedExpenditure, daySeries, weekAverages, scaleFood, entryAmountLabel, DIET_DEFAULT,
 } from './nutrition.js'
 
 const HOUR = 3600000
@@ -188,6 +188,19 @@ describe('weekAverages', () => {
   })
   it('is null averages with no data', () => {
     expect(weekAverages({ diet: {}, nutrition: [], workouts: [] }, 7, { now }).intake).toBe(null)
+  })
+})
+
+describe('entryAmountLabel', () => {
+  it('shows grams, portions and multipliers', () => {
+    expect(entryAmountLabel({ unit: 'g', amount: 200 })).toBe('200 g')
+    expect(entryAmountLabel({ unit: 'rebanada', amount: 2, grams: 56 })).toBe('2 rebanada (56 g)')
+    expect(entryAmountLabel({ unit: 'serving', amount: 2 })).toBe('×2')
+  })
+  it('hides a single serving and reads legacy qty rows', () => {
+    expect(entryAmountLabel({ unit: 'serving', amount: 1 })).toBe('')
+    expect(entryAmountLabel({ qty: 3 })).toBe('×3')
+    expect(entryAmountLabel(null)).toBe('')
   })
 })
 

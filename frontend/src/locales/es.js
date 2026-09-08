@@ -1312,4 +1312,7 @@ export default {
   'All exercises': 'Todos los ejercicios',
   'No favourite exercises yet.': 'Aún no tienes ejercicios favoritos.',
   'Tap the star on an exercise to pin it here.': 'Toca la estrella de un ejercicio para fijarlo aquí.',
+  'Remove from log': 'Eliminar del registro',
+  'Removed': 'Eliminado',
+  'The food is no longer in the catalogue.': 'El alimento ya no está en el catálogo.',
 }
