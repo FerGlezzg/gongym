@@ -38,7 +38,7 @@ import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
 import { dietOf, scaleFood, entryAmountLabel, bodyweightKgAt, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
-import { eventTypes, eventMinutes, eventKcal, eventTimeLabel } from './lib/events.js'
+import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, RECUR } from './lib/events.js'
 import { loadFoods, foodsReady, foodName, searchFoods, CATEGORY_LABEL, FOOD_CATEGORIES } from './lib/foods.js'
 import { lookupBarcode } from './lib/off.js'
 import { scanBarcode, importCodeFromImage } from './lib/scan.js'
@@ -1578,7 +1578,7 @@ function DayHub({ iso, close }) {
       {workouts.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { close(); workoutDetailSheet(w) }} />)}
       {events.map(e => <div key={e.id} className="item" {...tappable(() => { close(); eventSheet(iso, e) })}>
         <span className="lrow-i" style={{ fontSize: 18 }}>{e.emoji || '📅'}</span>
-        <div className="grow"><div className="tt">{e.name}</div><div className="ss">{eventTimeLabel(e) || t('Event')}</div></div>
+        <div className="grow"><div className="tt">{e.name}</div><div className="ss">{[eventTimeLabel(e), e.series ? t('repeats') : ''].filter(Boolean).join(' · ') || t('Event')}</div></div>
         <Icon name="chevronRight" className="chev" />
       </div>)}
     </div>}
@@ -1616,6 +1616,7 @@ function EventSheet({ iso, event, close }) {
   const [kph, setKph] = useState(event?.kcalPerHour ?? null)
   const [start, setStart] = useState(event?.start || '')
   const [end, setEnd] = useState(event?.end || '')
+  const [repeat, setRepeat] = useState('none')
   // new-type form
   const [tName, setTName] = useState('')
   const [tEmoji, setTEmoji] = useState('📅')
@@ -1633,18 +1634,27 @@ function EventSheet({ iso, event, close }) {
     if (!nm) { toast(t('Give it a name')); return }
     if ((start && !timeLike(start)) || (end && !timeLike(end)) || (!!start !== !!end)) { toast(t('Enter both a start and an end time')); return }
     const row = {
-      d: date, name: nm, emoji,
+      name: nm, emoji,
       start: start || null, end: end || null,
       met: met > 0 ? met : null, kcalPerHour: kph > 0 ? kph : null,
     }
+    if (event) {
+      update(s => { const e = s.events.find(x => x.id === event.id); if (e) Object.assign(e, row, { d: date }) })
+      close(); toast(t('Saved')); return
+    }
+    const dates = repeat === 'none' ? [date] : expandRecurrence(date, repeat)
+    const series = dates.length > 1 ? uid() : null
     update(s => {
       s.events = s.events || []
-      if (event) { const e = s.events.find(x => x.id === event.id); if (e) Object.assign(e, row) }
-      else s.events.push({ id: uid(), ...row })
+      dates.forEach(dd => s.events.push({ id: uid(), d: dd, ...row, ...(series ? { series } : {}) }))
     })
-    close(); toast(event ? t('Saved') : t('Event added'))
+    close(); toast(dates.length > 1 ? t('{0} events added', dates.length) : t('Event added'))
   }
-  const del = () => { update(s => { s.events = (s.events || []).filter(x => x.id !== event.id) }); close(); toast(t('Removed')) }
+  const delOne = () => { update(s => { s.events = (s.events || []).filter(x => x.id !== event.id) }); close(); toast(t('Removed')) }
+  const delSeries = () => {
+    update(s => { s.events = (s.events || []).filter(x => !(x.series === event.series && x.d >= event.d)) })
+    close(); toast(t('Removed'))
+  }
   const saveType = () => {
     const nm = tName.trim()
     if (!nm) { toast(t('Give it a name')); return }
@@ -1693,9 +1703,19 @@ function EventSheet({ iso, event, close }) {
       {eventMinutes({ start, end })} min · ≈ {fmtNum(kcal)} {t('kcal')} — {t('added to the day’s expenditure')}
     </div>}
 
+    {!event && <div style={{ marginTop: 6 }}>
+      <SelectRow icon="reset" title={t('Repeat')} value={repeat} onChange={setRepeat}
+        options={Object.entries(RECUR).map(([k, v]) => ({ value: k, label: t(v.label) }))} />
+    </div>}
+
     <div style={{ height: 16 }} />
     <Button variant="primary" onClick={save}>{event ? t('Save') : t('Add')}</Button>
-    {event && <><div style={{ height: 8 }} /><Button variant="danger" icon="trash" onClick={del}>{t('Delete')}</Button></>}
+    {event && (event.series
+      ? <><div style={{ height: 8 }} />
+          <Button variant="danger" icon="trash" onClick={delOne}>{t('Delete this one')}</Button>
+          <div style={{ height: 6 }} />
+          <Button variant="ghost" className="dim" onClick={delSeries}>{t('Delete this and all later ones')}</Button></>
+      : <><div style={{ height: 8 }} /><Button variant="danger" icon="trash" onClick={delOne}>{t('Delete')}</Button></>)}
   </>
 }
 export const eventSheet = (iso, event) => ui().openSheet(close => <EventSheet iso={iso} event={event} close={close} />)

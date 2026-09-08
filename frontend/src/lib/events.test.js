@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_EVENT_TYPES, eventTypes, eventMinutes, eventKcal, eventTimeLabel } from './events.js'
+import { DEFAULT_EVENT_TYPES, eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, RECUR } from './events.js'
 
 describe('DEFAULT_EVENT_TYPES', () => {
   it('includes surf and a zero-MET fallback', () => {
@@ -52,5 +52,24 @@ describe('eventTimeLabel', () => {
   it('formats a range or nothing', () => {
     expect(eventTimeLabel({ start: '18:00', end: '19:30' })).toBe('18:00 – 19:30')
     expect(eventTimeLabel({ start: '18:00' })).toBe('')
+  })
+})
+
+describe('expandRecurrence', () => {
+  it('none is just the day itself', () => {
+    expect(expandRecurrence('2026-09-15', 'none')).toEqual(['2026-09-15'])
+  })
+  it('weekly / biweekly step by 7 / 14 days', () => {
+    expect(expandRecurrence('2026-09-15', 'weekly').slice(0, 3)).toEqual(['2026-09-15', '2026-09-22', '2026-09-29'])
+    expect(expandRecurrence('2026-09-15', 'biweekly').slice(0, 3)).toEqual(['2026-09-15', '2026-09-29', '2026-10-13'])
+    expect(expandRecurrence('2026-09-15', 'weekly')).toHaveLength(RECUR.weekly.count)
+  })
+  it('monthly / quarterly / yearly step by month', () => {
+    expect(expandRecurrence('2026-01-10', 'monthly').slice(0, 3)).toEqual(['2026-01-10', '2026-02-10', '2026-03-10'])
+    expect(expandRecurrence('2026-01-10', 'quarterly').slice(0, 3)).toEqual(['2026-01-10', '2026-04-10', '2026-07-10'])
+    expect(expandRecurrence('2026-06-01', 'yearly').slice(0, 2)).toEqual(['2026-06-01', '2027-06-01'])
+  })
+  it('clamps a month-end day to the last day of a shorter month', () => {
+    expect(expandRecurrence('2026-01-31', 'monthly').slice(0, 3)).toEqual(['2026-01-31', '2026-02-28', '2026-03-31'])
   })
 })

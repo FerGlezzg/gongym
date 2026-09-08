@@ -61,3 +61,38 @@ export function eventKcal(ev, bodyweightKg) {
 export function eventTimeLabel(ev) {
   return ev && ev.start && ev.end ? `${ev.start} – ${ev.end}` : ''
 }
+
+// Repeating an event just generates that many independent rows ahead of time — no
+// recurrence engine, every occurrence is a normal event that can be edited or deleted on
+// its own (or as a series, via the shared `series` id). `count` is how far ahead to fill.
+export const RECUR = {
+  none: { label: 'No repeat', count: 1 },
+  weekly: { label: 'Weekly', count: 26, days: 7 },
+  biweekly: { label: 'Every 2 weeks', count: 13, days: 14 },
+  monthly: { label: 'Monthly', count: 12, months: 1 },
+  quarterly: { label: 'Every 3 months', count: 8, months: 3 },
+  yearly: { label: 'Yearly', count: 6, months: 12 },
+}
+
+const pad = n => String(n).padStart(2, '0')
+const localIso = dt => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`
+
+/**
+ * The list of ISO dates an event on `iso` covers at frequency `freq` (the first is `iso`
+ * itself). Month steps clamp overflow — the 31st in a short month lands on its last day.
+ */
+export function expandRecurrence(iso, freq) {
+  const cfg = RECUR[freq] || RECUR.none
+  const [y, m, d] = String(iso).split('-').map(Number)
+  const out = []
+  for (let i = 0; i < cfg.count; i++) {
+    let dt
+    if (cfg.days) dt = new Date(y, m - 1, d + cfg.days * i)
+    else if (cfg.months) {
+      dt = new Date(y, m - 1 + cfg.months * i, d)
+      if (dt.getDate() !== d) dt = new Date(y, m - 1 + cfg.months * i + 1, 0)   // clamp to month end
+    } else dt = new Date(y, m - 1, d)
+    out.push(localIso(dt))
+  }
+  return out
+}
