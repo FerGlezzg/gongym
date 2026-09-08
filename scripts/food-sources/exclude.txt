@@ -1,0 +1,12 @@
+# Drop patterns for scripts/build-foods.mjs — case-insensitive regex, one per line.
+# Applied to the USDA description before dedupe. Keep this list conservative:
+# the dedupe step already prefers the least-qualified variant in each group.
+
+meatless
+imitation
+\bsubstitute\b
+\bNFS\b
+Chinese restaurant
+school lunch
+babyfood
+infant formula

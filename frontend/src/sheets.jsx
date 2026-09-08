@@ -15,7 +15,7 @@ import Media, { Thumb } from './components/Media.jsx'
 import LineChart from './components/LineChart.jsx'
 import Stepper from './components/Stepper.jsx'
 import Icon from './components/Icon.jsx'
-import { Button, Slider, Switch, Segmented, SelectRow, Row, TextField, NumberField, MultiSelectRow } from './components/ui.jsx'
+import { Button, Slider, Switch, Segmented, SelectRow, Row, TextField, NumberField, MultiSelectRow, SearchField } from './components/ui.jsx'
 import { glyphOf, GLYPH_GROUPS, DEFAULT_GLYPH } from './lib/glyphs.js'
 import BodyMap from './components/BodyMap.jsx'
 import MuscleExplorer from './components/MuscleExplorer.jsx'
@@ -37,6 +37,12 @@ import { isFav, toggleFav, sortFavouritesFirst } from './lib/favourites.js'
 import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
+import { dietOf, scaleFood, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
+import { loadFoods, foodsReady, foodName, searchFoods, CATEGORY_LABEL, FOOD_CATEGORIES } from './lib/foods.js'
+import { lookupBarcode } from './lib/off.js'
+import { scanBarcode, importCodeFromImage } from './lib/scan.js'
+import CameraScan from './components/CameraScan.jsx'
+import { BARCODE_1D } from './lib/scan-web.js'
 
 const S = () => useStore.getState().S
 const update = (...a) => useStore.getState().update(...a)
@@ -2109,3 +2115,339 @@ function doFinishWorkout() {
   beep(snd(), 880, 0.15); beep(snd(), 1100, 0.15, 0.18); beep(snd(), 1320, 0.3, 0.36)
   ui().openSheet(close => <FinishSummary w={w} prs={prs} e1prs={e1prs} close={close} />, { kind: 'center', locked: true })
 }
+
+/* ============================ diet: goal + profile ============================ */
+// One sheet for the whole nutrition setup: the daily calorie goal (and optional macro
+// targets) plus the body facts behind the expenditure estimate. Saved as a whole into
+// S.diet — consumers read it through dietOf() so a partial object still resolves.
+
+function DietGoalSheet({ close }) {
+  const st = useStore(s => s.S)
+  const d = dietOf(st)
+  const [kcal, setKcal] = useState(d.kcalGoal)
+  const [hasMacros, setHasMacros] = useState(!!d.macroGoal)
+  const [p, setP] = useState(d.macroGoal?.p ?? null)
+  const [c, setC] = useState(d.macroGoal?.c ?? null)
+  const [f, setF] = useState(d.macroGoal?.f ?? null)
+  const [heightCm, setHeightCm] = useState(d.heightCm)
+  const [birthYear, setBirthYear] = useState(d.birthYear)
+  const [sex, setSex] = useState(d.sex || (st.body === 'female' ? 'female' : 'male'))
+  const [activity, setActivity] = useState(d.activity || DIET_DEFAULT.activity)
+  const [workoutKcal, setWorkoutKcal] = useState(d.workoutKcal !== false)
+
+  const save = () => {
+    update(s => {
+      s.diet = {
+        ...dietOf(s),
+        kcalGoal: kcal > 0 ? Math.round(kcal) : null,
+        macroGoal: hasMacros ? { p: Math.round(p || 0), c: Math.round(c || 0), f: Math.round(f || 0) } : null,
+        heightCm: heightCm > 0 ? Math.round(heightCm) : null,
+        birthYear: birthYear > 1900 && birthYear < new Date().getFullYear() ? Math.round(birthYear) : null,
+        sex, activity, workoutKcal,
+      }
+    })
+    close()
+    toast(t('Diet goal saved'))
+  }
+  const clear = () => {
+    update(s => { s.diet = { ...dietOf(s), kcalGoal: null, macroGoal: null } })
+    close()
+    toast(t('Goal removed'))
+  }
+
+  return <>
+    <h3>{t('Calorie goal')}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>{t('Your daily target — drawn as a line through the diet charts, and used to show how much you have left.')}</div>
+    <div className="row cfgrow"><Stepper label={t('Daily calories')} value={kcal || 0} step={50} decimal={false} unit={t('kcal')} onChange={setKcal} /></div>
+
+    <div className="lrow" style={{ marginTop: 8 }}>
+      <span className="lrow-t">{t('Macro targets')}</span>
+      <Switch checked={hasMacros} onChange={setHasMacros} />
+    </div>
+    {hasMacros && <div className="row cfgrow" style={{ marginTop: 8, gap: 8 }}>
+      <Stepper label={t('Protein') + ' (g)'} value={p || 0} step={5} decimal={false} onChange={setP} />
+      <Stepper label={t('Carbs') + ' (g)'} value={c || 0} step={5} decimal={false} onChange={setC} />
+      <Stepper label={t('Fat') + ' (g)'} value={f || 0} step={5} decimal={false} onChange={setF} />
+    </div>}
+
+    <h4 className="sec" style={{ marginTop: 18 }}>{t('Profile — to estimate expenditure')}</h4>
+    <div className="row cfgrow" style={{ gap: 8 }}>
+      <Stepper label={t('Height (cm)')} value={heightCm || 0} step={1} decimal={false} onChange={setHeightCm} />
+      <Stepper label={t('Year of birth')} value={birthYear || 0} step={1} decimal={false} onChange={setBirthYear} />
+    </div>
+    <div className="lrow" style={{ marginTop: 10, flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+      <span className="lrow-t">{t('Sex')}</span>
+      <Segmented options={[{ value: 'male', label: t('Male') }, { value: 'female', label: t('Female') }]} value={sex} onChange={setSex} />
+    </div>
+    <div className="lrow" style={{ marginTop: 10, flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+      <span className="lrow-t">{t('Activity level')}</span>
+      <Segmented options={ACTIVITY_LEVELS.map(l => ({ value: l.value, label: t(l.label) }))} value={activity} onChange={setActivity} />
+    </div>
+    <div className="lrow" style={{ marginTop: 10 }}>
+      <span className="lrow-t">{t('Add calories burned from workouts')}</span>
+      <Switch checked={workoutKcal} onChange={setWorkoutKcal} />
+    </div>
+
+    <div style={{ height: 16 }} />
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+    {d.kcalGoal && <><div style={{ height: 8 }} /><Button variant="danger" onClick={clear}>{t('Remove goal')}</Button></>}
+  </>
+}
+export const dietGoalSheet = () => ui().openSheet(close => <DietGoalSheet close={close} />)
+
+/* ============================ diet: log food ============================ */
+// Three ways to log something eaten: search the built-in catalogue (USDA, per 100 g,
+// lazy-loaded via lib/foods.js), pick from the personal list in S.foods (per serving), or
+// scan a packaged product's barcode (Open Food Facts lookup, lib/off.js). Each logged item
+// is a row in S.nutrition with the meal slot, today's date and the resolved kcal/macros.
+
+const isBuiltinFood = food => !!(food && food.en)                       // catalogue rows carry `en`
+// Catalogue rows are per 100 g unless they carry an explicit basis (the curated dishes /
+// drinks are 'serving'); user-made foods default to 'serving'.
+const foodBasis = food => food?.basis || (isBuiltinFood(food) ? 'g' : 'serving')
+const foodLabel = food => (food?.name) || foodName(food)
+
+// choice: { amount, unit, grams? }. unit 'serving' → amount is a multiplier; 'g' → amount
+// is grams; a portion label (e.g. 'rebanada') → amount is a count and grams is the total.
+function logFoodEntry(slot, food, choice) {
+  const { amount, unit } = choice
+  const grams = unit === 'serving' ? null : Math.round(choice.grams ?? amount)
+  const scaled = unit === 'serving' ? scaleFood(food, amount, 'serving') : scaleFood(food, grams, 'g')
+  update(s => {
+    (s.nutrition = s.nutrition || []).push({
+      id: uid(), d: todayISO(), slot, name: foodLabel(food),
+      foodId: food.id || null, amount, unit, ...(grams != null ? { grams } : {}),
+      ...scaled, t: Date.now(),
+    })
+  })
+}
+
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s
+
+// name + per-serving-or-per-100g macros. `basis` is fixed for a catalogue clone / barcode
+// result (grams); free to choose for a hand-made food.
+function CreateFoodForm({ initialName = '', existing, prefill, lockBasis, onSaved, onCancel }) {
+  const seed = existing || prefill || {}
+  const [name, setName] = useState(seed.name || initialName)
+  const [basis, setBasis] = useState(lockBasis || seed.basis || 'serving')
+  const [kcal, setKcal] = useState(seed.kcal ?? null)
+  const [p, setP] = useState(seed.p ?? null)
+  const [c, setC] = useState(seed.c ?? null)
+  const [f, setF] = useState(seed.f ?? null)
+  const per = basis === 'g' ? t('per 100 g') : t('per serving')
+  const submit = () => {
+    const nm = name.trim()
+    if (!nm) { toast(t('Give it a name')); return }
+    if (!(kcal > 0)) { toast(t('Enter the calories')); return }
+    const food = {
+      id: existing?.id || uid(), name: nm, basis,
+      kcal: Math.round(kcal), p: Math.round((p || 0) * 10) / 10, c: Math.round((c || 0) * 10) / 10, f: Math.round((f || 0) * 10) / 10,
+    }
+    update(s => {
+      s.foods = s.foods || []
+      const i = s.foods.findIndex(x => x.id === food.id)
+      if (i >= 0) s.foods[i] = food; else s.foods.push(food)
+    })
+    onSaved(food)
+  }
+  return <>
+    <h3>{existing ? t('Edit food') : t('Create food')}</h3>
+    <div className="muted small" style={{ marginBottom: 12 }}>
+      {seed.fromOff ? t('From Open Food Facts — check the values.') : t('Saved to your food list for next time.')}
+    </div>
+    <input className="input" placeholder={t('Food name')} value={name} onChange={e => setName(e.target.value)} />
+    {!lockBasis && <div style={{ marginTop: 10 }}>
+      <Segmented options={[{ value: 'serving', label: t('Per serving') }, { value: 'g', label: t('Per 100 g') }]} value={basis} onChange={setBasis} />
+    </div>}
+    <div className="row cfgrow" style={{ marginTop: 10 }}><Stepper label={t('Calories (kcal)') + ' · ' + per} value={kcal || 0} step={10} decimal={false} onChange={setKcal} /></div>
+    <div className="row cfgrow" style={{ marginTop: 8, gap: 8 }}>
+      <Stepper label={t('Protein') + ' (g)'} value={p || 0} step={1} onChange={setP} />
+      <Stepper label={t('Carbs') + ' (g)'} value={c || 0} step={1} onChange={setC} />
+      <Stepper label={t('Fat') + ' (g)'} value={f || 0} step={1} onChange={setF} />
+    </div>
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={submit}>{existing ? t('Save') : t('Create')}</Button>
+    <div style={{ height: 8 }} />
+    <Button variant="ghost" className="dim" onClick={onCancel}>{t('Cancel')}</Button>
+  </>
+}
+
+// The amount + macro preview + Add button for one selected food. A per-100 g food can be
+// logged in grams or by one of its household portions ("2 rebanadas"); a per-serving food
+// (curated dishes, user foods) just multiplies.
+function LogFoodCard({ food, slot, onLogged, onEdit, onDelete }) {
+  const serving = foodBasis(food) !== 'g'
+  const portions = (!serving && Array.isArray(food.portions)) ? food.portions : []
+  // unit: 'serving' | 'g' | portion index as a string
+  const [unit, setUnit] = useState(serving ? 'serving' : (portions.length ? '0' : 'g'))
+  const isG = unit === 'g', isServing = unit === 'serving'
+  const portion = (!isG && !isServing) ? portions[+unit] : null
+  const [amount, setAmount] = useState(isG ? 100 : 1)
+  useEffect(() => { setAmount(unit === 'g' ? 100 : 1) }, [unit])
+
+  const grams = portion ? portion.g * amount : (isG ? amount : null)
+  const scaled = isServing ? scaleFood(food, amount, 'serving') : scaleFood(food, grams, 'g')
+  const opts = [
+    ...(serving ? [{ value: 'serving', label: t('Servings') }] : [{ value: 'g', label: t('Grams') }]),
+    ...portions.map((p, i) => ({ value: String(i), label: cap(p.label) })),
+  ]
+
+  return <div className="card" style={{ marginTop: 10, padding: '12px 14px' }}>
+    <div className="row between" style={{ marginBottom: 8 }}>
+      <b style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{foodLabel(food)}</b>
+      <span className="dim small" style={{ flex: 'none' }}>{fmtNum(food.kcal)} {t('kcal')} · {serving ? t('per serving') : t('per 100 g')}</span>
+    </div>
+    {opts.length > 1 && <div style={{ marginBottom: 8 }}><Segmented options={opts} value={unit} onChange={setUnit} /></div>}
+    <div className="row cfgrow">
+      <Stepper label={isG ? t('Grams') : isServing ? t('Servings') : cap(portion.label)}
+        value={amount} step={isG ? 10 : 0.5}
+        onChange={v => setAmount(isG ? Math.max(0, v) : (v || 0.5))} />
+    </div>
+    <div className="small dim" style={{ margin: '6px 0 10px' }}>
+      = {fmtNum(scaled.kcal)} {t('kcal')}
+      {scaled.p ? ' · P ' + fmtNum(scaled.p) : ''}{scaled.c ? ' · C ' + fmtNum(scaled.c) : ''}{scaled.f ? ' · F ' + fmtNum(scaled.f) : ''}
+      {portion ? ' · ≈ ' + fmtNum(Math.round(grams)) + ' g' : ''}
+    </div>
+    <Button variant="primary" onClick={() => {
+      logFoodEntry(slot, food, { amount, unit: portion ? portion.label : unit, grams })
+      onLogged()
+    }}>{t('Add')}</Button>
+    {!isBuiltinFood(food) && <div className="row" style={{ gap: 8, marginTop: 8 }}>
+      <Button icon="pencil" style={{ flex: 1 }} onClick={onEdit}>{t('Edit')}</Button>
+      <Button variant="danger" icon="trash" style={{ flex: 1 }} onClick={onDelete}>{t('Delete')}</Button>
+    </div>}
+  </div>
+}
+
+function AddFoodSheet({ slot, close }) {
+  const st = useStore(s => s.S)
+  const lang = getLang()
+  const userFoods = st.foods || []
+  const [catalog, setCatalog] = useState(() => foodsReady())
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState('')
+  const [mode, setMode] = useState('pick')      // 'pick' | 'create' | 'edit' | 'scan'
+  const [picked, setPicked] = useState(null)    // { food } currently expanded
+  const [editing, setEditing] = useState(null)
+  const [scanPrefill, setScanPrefill] = useState(null)
+  const [scanBusy, setScanBusy] = useState(false)
+  const [manualCode, setManualCode] = useState('')
+  const photoRef = useRef(null)
+
+  useEffect(() => { if (!catalog) loadFoods().then(setCatalog) }, [catalog])
+
+  const added = () => { close(); toast(t('Added to {0}', t(SLOT_LABEL_FOR(slot)))) }
+  const delFood = fd => update(s => { s.foods = (s.foods || []).filter(x => x.id !== fd.id) })
+
+  const resolveBarcode = async code => {
+    setScanBusy(true)
+    let hit = null
+    try { hit = await lookupBarcode(code) } catch (e) { /* */ }
+    setScanBusy(false)
+    if (!hit) { toast(t('Product not found')); setScanPrefill({ name: '', basis: 'g' }); setMode('create'); return }
+    setScanPrefill({ name: hit.brand ? hit.brand + ' ' + hit.name : hit.name, basis: 'g', fromOff: true, kcal: hit.per100g.kcal, p: hit.per100g.p, c: hit.per100g.c, f: hit.per100g.f })
+    setMode('create')
+  }
+  const startScan = async () => {
+    if (MOBILE) {
+      try {
+        const code = await scanBarcode()
+        if (code) resolveBarcode(code)
+      } catch (e) { toast(t('Could not open the scanner')) }
+    } else {
+      setMode('scan')
+    }
+  }
+  const onPhoto = async ev => {
+    const file = ev.target.files && ev.target.files[0]
+    ev.target.value = ''
+    if (!file) return
+    setScanBusy(true)
+    let code = null
+    try { code = await importCodeFromImage(file, { formats: BARCODE_1D }) } catch (e) { /* */ }
+    setScanBusy(false)
+    if (code && /^\d{6,}$/.test(code.value || '')) resolveBarcode(code.value)
+    else toast(t('No barcode found in that photo'))
+  }
+  const photoInput = <input ref={photoRef} type="file" accept="image/*" hidden onChange={onPhoto} />
+
+  if (mode === 'scan') return <>
+    <CameraScan formats={BARCODE_1D} hint={t('Point the camera at the barcode')}
+      onFound={c => { setMode('pick'); resolveBarcode(c.value) }} onCancel={() => setMode('pick')} />
+    <div className="row" style={{ gap: 8, marginTop: 10 }}>
+      <Button variant="tinted" icon="image" onClick={() => photoRef.current?.click()} disabled={scanBusy}>{t('Import photo')}</Button>
+    </div>
+    <div className="row" style={{ gap: 8, marginTop: 8 }}>
+      <input className="input" inputMode="numeric" placeholder={t('Enter barcode')} value={manualCode} onChange={e => setManualCode(e.target.value)} />
+      <Button onClick={() => { const c = manualCode.trim(); if (c) { setMode('pick'); resolveBarcode(c) } }}>{t('Look up')}</Button>
+    </div>
+    {photoInput}
+  </>
+
+  if (mode === 'create' || mode === 'edit') return <CreateFoodForm
+    initialName={q.trim()}
+    existing={mode === 'edit' ? editing : null}
+    prefill={mode === 'create' ? scanPrefill : null}
+    lockBasis={mode === 'create' && scanPrefill ? 'g' : null}
+    onCancel={() => { setScanPrefill(null); setMode('pick') }}
+    onSaved={food => {
+      if (mode === 'create') {
+        logFoodEntry(slot, food, foodBasis(food) === 'g' ? { amount: 100, unit: 'g', grams: 100 } : { amount: 1, unit: 'serving' })
+        added()
+      }
+      else { setEditing(null); setPicked(null); setMode('pick') }
+    }} />
+
+  const results = searchFoods(
+    [...userFoods, ...(catalog || [])].filter(fd => !cat || fd.cat === cat),
+    q, { lang, limit: 60 },
+  )
+
+  return <>
+    <h3>{t('Add food')}</h3>
+    <div className="muted small" style={{ marginBottom: 10 }}>{t(SLOT_LABEL_FOR(slot))} · {fmtDate(todayISO(), true)}</div>
+    <SearchField value={q} onChange={e => setQ(e.target.value)} onClear={() => setQ('')} placeholder={t('Search foods…')} />
+    <div className="row" style={{ gap: 8, marginTop: 8 }}>
+      <Button variant="tinted" icon="camera" style={{ flex: 1 }} onClick={startScan} disabled={scanBusy}>{t('Scan barcode')}</Button>
+      <Button variant="tinted" icon="image" style={{ flex: 1 }} onClick={() => photoRef.current?.click()} disabled={scanBusy}>{t('Import photo')}</Button>
+    </div>
+    {photoInput}
+    {scanBusy && <div className="muted small" style={{ marginTop: 8 }}>{t('Looking up product…')}</div>}
+
+    <div className="chips" style={{ margin: '10px 0 4px' }}>
+      <button className={'chip nocap' + (!cat ? ' on' : '')} onClick={() => setCat('')}>{t('All')}</button>
+      {FOOD_CATEGORIES.map(k => <button key={k} className={'chip' + (cat === k ? ' on' : '')} onClick={() => setCat(cat === k ? '' : k)}>{t(CATEGORY_LABEL[k])}</button>)}
+    </div>
+
+    {picked && <LogFoodCard key={picked.id} food={picked} slot={slot} onLogged={added}
+      onEdit={() => { setEditing(picked); setMode('edit') }}
+      onDelete={() => { delFood(picked); setPicked(null) }} />}
+
+    <div className="list" style={{ marginTop: 10 }}>
+      <div className="item" {...tappable(() => { setScanPrefill(null); setMode('create') })}>
+        <div className="thumb thumb-x"><Icon name="sparkles" /></div>
+        <div className="grow"><div className="tt">{t('Create food')}</div><div className="ss">{t('name + calories + macros')}</div></div>
+        <Icon name="plus" className="chev" />
+      </div>
+      {!catalog && <div className="muted small" style={{ padding: '10px 2px' }}>{t('Loading foods…')}</div>}
+      {results.map(fd => {
+        const sel = picked && picked.id === fd.id
+        const g = foodBasis(fd) === 'g'
+        return <div key={fd.id} className="item" {...tappable(() => setPicked(sel ? null : fd))}>
+          <div className="grow">
+            <div className="tt">{foodLabel(fd)}{!isBuiltinFood(fd) && <span className="dim small"> · {t('yours')}</span>}</div>
+            <div className="ss">{fmtNum(fd.kcal)} {t('kcal')} {g ? t('/100g') : ''}{fd.p || fd.c || fd.f ? ' · P' + fmtNum(fd.p || 0) + ' C' + fmtNum(fd.c || 0) + ' F' + fmtNum(fd.f || 0) : ''}</div>
+          </div>
+          <Icon name={sel ? 'chevronDown' : 'chevronRight'} className="chev" />
+        </div>
+      })}
+      {catalog && !results.length && <div className="empty" style={{ padding: '28px 20px' }}><div className="ico"><Icon name="magnifier" /></div>{t('No match')}</div>}
+    </div>
+    <div className="small dim" style={{ marginTop: 12 }}>{t('Data: USDA FoodData Central')}</div>
+  </>
+}
+// slot → label key, kept next to the sheet so both files agree on the wording.
+function SLOT_LABEL_FOR(slot) {
+  return { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' }[slot] || 'Snack'
+}
+export const addFoodSheet = slot => ui().openSheet(close => <AddFoodSheet slot={slot} close={close} />)

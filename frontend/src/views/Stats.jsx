@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { EXIDX, matchExercise } from '../lib/exercises.js'
 import { lastBW, streakWeeks, setLabel, modeOf, effortOf, metricModeForEntry, metricRowsForEntry, bestWeightForEntry } from '../lib/history.js'
-import { fmtNum, fmtDate, fmtVol, todayISO, weekStartOf } from '../lib/format.js'
+import { fmtNum, fmtDate, fmtVol, todayISO, isoOf, weekStartOf } from '../lib/format.js'
+import { dietOf, daySeries, weekAverages } from '../lib/nutrition.js'
 import { t, exerciseNameFor, getLang } from '../lib/i18n.js'
 import { bwSheet, goalSheet, calendarSheet, workoutDetailSheet, WorkoutRow, bwDeltaColor } from '../sheets.jsx'
 import LineChart from '../components/LineChart.jsx'
@@ -281,10 +282,82 @@ function EffortCard({ S }) {
   </div>
 }
 
+// The diet half of Stats: calorie intake against the goal, the estimated burn, and the
+// balance between them over time. All of it is derived in lib/nutrition.js.
+function DietStats({ S }) {
+  const [range, setRange] = useState(90)
+  const now = Date.now()
+  const d = dietOf(S)
+  const to = todayISO()
+  const from = range === 0 ? null : (() => { const dt = new Date(); dt.setDate(dt.getDate() - range); return isoOf(dt) })()
+  const series = daySeries(S, { from, to, now })
+  const wk = weekAverages(S, 7, { now })
+  const kcal = t('kcal')
+
+  if (!series.some(r => r.intake > 0)) return <div className="empty">
+    <div className="ico"><Icon name="apple" /></div>{t('Log meals in the Diet tab to see your history here.')}
+  </div>
+
+  const intakePts = series.filter(r => r.intake > 0).map(r => ({ t: new Date(r.d).getTime(), y: r.intake, d: r.d }))
+  const expPts = series.filter(r => r.expenditure != null).map(r => ({ t: new Date(r.d).getTime(), y: r.expenditure, d: r.d }))
+  const balPts = series.filter(r => r.balance != null).map(r => ({ t: new Date(r.d).getTime(), y: r.balance, d: r.d }))
+  const recent = [...series].reverse().slice(0, 7)
+  const macros = d.macroGoal
+
+  return <>
+    <div className="tiles">
+      <div className="tile"><div className="l"><Icon name="apple" />{t('Avg intake 7d')}</div><div className="v" style={{ fontSize: 22 }}>{wk.intake == null ? '—' : fmtNum(wk.intake)}</div></div>
+      <div className="tile"><div className="l"><Icon name="flame" />{t('Avg burn 7d')}</div><div className="v" style={{ fontSize: 22 }}>{wk.expenditure == null ? '—' : fmtNum(wk.expenditure)}</div></div>
+      <div className="tile"><div className="l"><Icon name="scale" />{t('Avg balance 7d')}</div><div className="v" style={{ fontSize: 22, color: wk.balance == null ? 'inherit' : wk.balance < 0 ? 'var(--acc)' : 'var(--yellow)' }}>{wk.balance == null ? '—' : (wk.balance > 0 ? '+' : '') + fmtNum(wk.balance)}</div></div>
+      <div className="tile"><div className="l"><Icon name="target" />{t('On-goal streak')}</div><div className="v">{wk.onGoalStreak}</div></div>
+    </div>
+
+    <div className="card">
+      <h2>{t('Calorie intake')} {d.kcalGoal ? <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('goal {0}', fmtNum(d.kcalGoal))}</span> : null}</h2>
+      <Segmented className="seg-range" value={range} onChange={setRange}
+        options={[{ value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 365, label: '1Y' }, { value: 0, label: t('All') }]} />
+      <div className="chart"><LineChart points={intakePts} h={160} unit={kcal} goal={d.kcalGoal} color="var(--blue)" /></div>
+    </div>
+
+    {expPts.length > 1 && <div className="card">
+      <h2>{t('Estimated expenditure')}</h2>
+      <div className="chart"><LineChart points={expPts} h={150} unit={kcal} color="var(--yellow)" /></div>
+      {balPts.length > 1 && <>
+        <h4 className="sec" style={{ marginTop: 12 }}>{t('Daily balance')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('intake minus burn')}</span></h4>
+        <div className="chart"><LineChart points={balPts} h={130} unit={kcal} color="var(--acc)" /></div>
+      </>}
+    </div>}
+
+    {macros && <div className="card">
+      <h2>{t('Average macros')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('last 7 days')}</span></h2>
+      {[['p', 'Protein'], ['c', 'Carbs'], ['f', 'Fat']].map(([k, label]) => {
+        const avg = wk.macros[k] || 0
+        return <div key={k} className="mrow">
+          <span className="nm">{t(label)}</span>
+          <span className="bar"><i style={{ width: (macros[k] > 0 ? Math.min(100, Math.round(avg / macros[k] * 100)) : 0) + '%' }} /></span>
+          <span className="v">{fmtNum(avg)} / {fmtNum(macros[k])} g</span>
+        </div>
+      })}
+    </div>}
+
+    <h4 className="sec">{t('Recent days')}</h4>
+    <div className="list" style={{ gap: 0 }}>
+      {recent.map(r => <div key={r.d} className="row between" style={{ padding: '10px 2px', borderBottom: 'var(--hair) solid var(--sep)' }}>
+        <span className="small muted">{fmtDate(r.d, true)}</span>
+        <span className="row small" style={{ gap: 12 }}>
+          <b>{fmtNum(r.intake)}{r.goal ? <span className="dim"> / {fmtNum(r.goal)}</span> : ''} {kcal}</b>
+          {r.balance != null && <span style={{ color: r.balance < 0 ? 'var(--acc)' : 'var(--yellow)', minWidth: 44, textAlign: 'right' }}>{(r.balance > 0 ? '+' : '') + fmtNum(r.balance)}</span>}
+        </span>
+      </div>)}
+    </div>
+  </>
+}
+
 // Stats = the analytics hub: all charts, progress and history live here.
 export default function Stats() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
+  const [tab, setTab] = useState('training')
   const [range, setRange] = useState(90)
   const [exId, setExId] = useState(null)
   const [exMetric, setExMetric] = useState('top')
@@ -432,6 +505,11 @@ export default function Stats() {
     <div className="hdr"><div><h1>{t('Stats')}</h1><div className="sub">{t('Progress & history')}</div></div>
       <button className="iconbtn" onClick={() => nav('/history')} aria-label={t('History')}><Icon name="history" /></button></div>
 
+    <Segmented className="seg-range" value={tab} onChange={setTab}
+      options={[{ value: 'training', label: t('Training') }, { value: 'diet', label: t('Diet') }]} />
+
+    {tab === 'diet' ? <DietStats S={S} /> : <>
+
     <div className="tiles">
       <div className="tile"><div className="l"><Icon name="dumbbell" />{t('Workouts')}</div><div className="v">{workouts.length}</div></div>
       <div className="tile"><div className="l"><Icon name="calendar" />{t('This month')}</div><div className="v">{monthW}</div></div>
@@ -503,6 +581,8 @@ export default function Stats() {
         <Button size="sm" variant="ghost" trailingIcon="chevronRight" onClick={() => nav('/history')}>{t('All')} {workouts.length}</Button>
       </div>
       <div className="list">{[...workouts].reverse().slice(0, 6).map(w => <WorkoutRow key={w.id} w={w} onClick={() => workoutDetailSheet(w)} />)}</div>
+    </>}
+
     </>}
   </>
 }

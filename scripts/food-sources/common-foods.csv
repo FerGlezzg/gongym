@@ -1,0 +1,165 @@
+# Curated everyday foods and dishes — the friendly half of the catalogue, so a search for
+# "manzana", "café solo" or "canelones" lands on one clean entry instead of a wall of
+# USDA descriptors. Hand-entered, Spanish-first.
+#
+# Format:  es | en | category | basis | kcal | protein_g | carb_g | fat_g
+#   basis 'g'       -> values are per 100 g / 100 ml, logged in grams
+#   basis 'serving' -> values are for one typical portion (a cup, a unit, a plate), logged x1/x2…
+# Composite-dish figures are approximate by nature. Categories must be one of the slugs in
+# scripts/build-foods.mjs (CAT values).
+
+# --- fruit (one piece) ---
+Manzana|Apple|fruit|serving|95|0.5|25|0.3
+Plátano|Banana|fruit|serving|105|1.3|27|0.4
+Naranja|Orange|fruit|serving|86|1.7|21|0.2
+Mandarina|Mandarin|fruit|serving|47|0.7|12|0.3
+Pera|Pear|fruit|serving|101|0.6|27|0.2
+Kiwi|Kiwi|fruit|serving|42|0.8|10|0.4
+Fresas (un puñado)|Strawberries (handful)|fruit|serving|32|0.7|7.7|0.3
+Uvas (un puñado)|Grapes (handful)|fruit|serving|70|0.7|18|0.2
+Melocotón|Peach|fruit|serving|59|1.4|14|0.4
+Ciruela|Plum|fruit|serving|30|0.5|8|0.2
+Aguacate (medio)|Avocado (half)|fruit|serving|160|2|9|15
+Sandía (una tajada)|Watermelon (slice)|fruit|serving|85|1.7|21|0.4
+
+# --- drinks ---
+Café solo|Espresso|beverage|serving|3|0.1|0.5|0
+Café con leche|Coffee with milk|beverage|serving|60|3|5|3
+Cortado|Cortado|beverage|serving|25|1.4|2|1.4
+Café con leche desnatada|Coffee with skim milk|beverage|serving|35|3.2|5|0.3
+Té|Tea|beverage|serving|2|0|0.4|0
+Infusión|Herbal tea|beverage|serving|2|0|0.4|0
+Cacao con leche|Cocoa with milk|beverage|serving|170|7|24|5
+Zumo de naranja natural|Fresh orange juice|beverage|serving|90|1.4|21|0.4
+Refresco de cola|Cola soft drink|beverage|serving|140|0|39|0
+Refresco de cola zero|Cola zero|beverage|serving|1|0|0|0
+Cerveza (caña)|Beer (small)|beverage|serving|90|1|7|0
+Cerveza (tercio)|Beer (bottle)|beverage|serving|145|1.5|12|0
+Vino tinto (copa)|Red wine (glass)|beverage|serving|100|0.1|3|0
+Batido de proteínas|Protein shake|beverage|serving|170|30|8|3
+
+# --- breakfast / bakery ---
+Tostada con aceite|Toast with olive oil|grain|serving|150|3|18|7
+Pan con tomate|Bread with tomato|grain|serving|180|4|28|6
+Croissant|Croissant|grain|serving|240|5|26|12
+Napolitana de chocolate|Chocolate pastry|sweet|serving|340|5|38|18
+Magdalena|Muffin (small)|sweet|serving|160|2.5|20|8
+Donut|Donut|sweet|serving|260|3|31|14
+Galletas María (4 uds)|Marie biscuits (4)|sweet|serving|120|1.8|20|3.5
+Cereales de desayuno|Breakfast cereal|grain|g|375|8|80|3
+Copos de avena|Rolled oats|grain|g|370|13|60|7
+Muesli|Muesli|grain|g|360|9|65|6
+Tortitas (2 uds)|Pancakes (2)|grain|serving|220|6|30|8
+
+# --- eggs & simple plates ---
+Huevo cocido|Boiled egg|protein|serving|78|6.3|0.6|5.3
+Huevos fritos (2)|Fried eggs (2)|protein|serving|200|13|1|16
+Tortilla francesa (2 huevos)|Plain omelette (2 eggs)|protein|serving|210|13|1|17
+Tortilla de patata (porción)|Spanish omelette (slice)|prepared|serving|270|8|18|18
+Revuelto de champiñones|Scrambled eggs with mushrooms|prepared|serving|230|15|3|17
+
+# --- sandwiches ---
+Bocadillo de jamón serrano|Serrano ham baguette|prepared|serving|420|22|48|15
+Bocadillo de jamón y queso|Ham and cheese baguette|prepared|serving|480|24|48|21
+Bocadillo de tortilla|Omelette baguette|prepared|serving|450|15|50|20
+Sándwich mixto|Toasted ham and cheese sandwich|prepared|serving|350|18|30|18
+Sándwich vegetal|Veggie sandwich|prepared|serving|330|12|38|14
+
+# --- rice & pasta dishes ---
+Canelones|Cannelloni (portion)|prepared|serving|450|18|40|24
+Lasaña|Lasagna (portion)|prepared|serving|400|20|35|20
+Macarrones con tomate|Pasta with tomato sauce|prepared|serving|480|15|75|12
+Espaguetis a la boloñesa|Spaghetti bolognese|prepared|serving|520|22|65|18
+Espaguetis carbonara|Spaghetti carbonara|prepared|serving|600|22|65|28
+Paella|Paella (portion)|prepared|serving|560|24|65|20
+Arroz a la cubana|Rice with tomato and egg|prepared|serving|480|13|70|15
+Arroz tres delicias|Fried rice|prepared|serving|420|12|60|14
+Risotto|Risotto (portion)|prepared|serving|450|12|60|16
+
+# --- legume & stew dishes ---
+Lentejas guisadas|Stewed lentils|prepared|serving|380|18|45|12
+Garbanzos con espinacas|Chickpeas with spinach|prepared|serving|400|17|48|14
+Fabada asturiana|Bean and pork stew|prepared|serving|560|26|40|30
+Cocido|Chickpea and meat stew|prepared|serving|600|32|45|30
+Potaje de garbanzos|Chickpea potage|prepared|serving|420|18|50|15
+
+# --- soups & vegetables ---
+Gazpacho|Gazpacho|prepared|serving|120|2|10|8
+Crema de calabacín|Courgette soup|prepared|serving|120|4|12|6
+Puré de verduras|Vegetable puree|prepared|serving|150|4|20|6
+Sopa de fideos|Noodle soup|prepared|serving|150|6|22|3
+Ensalada mixta|Mixed salad|prepared|serving|150|4|12|10
+Ensalada César|Caesar salad|prepared|serving|360|16|14|27
+Menestra de verduras|Mixed vegetables|prepared|serving|130|7|16|4
+Pisto|Ratatouille|prepared|serving|160|3|14|10
+Verduras a la plancha|Grilled vegetables|prepared|serving|110|4|14|4
+
+# --- mains: meat & fish (a plated portion) ---
+Pechuga de pollo a la plancha|Grilled chicken breast|protein|serving|250|46|0|6
+Muslo de pollo asado|Roast chicken thigh|protein|serving|280|28|0|18
+Filete de ternera a la plancha|Grilled beef steak|protein|serving|300|40|0|15
+Cerdo a la plancha|Grilled pork loin|protein|serving|280|38|0|14
+Albóndigas con tomate|Meatballs in tomato sauce|prepared|serving|420|26|18|27
+Merluza a la plancha|Grilled hake|protein|serving|150|31|0|3
+Salmón a la plancha|Grilled salmon|protein|serving|310|34|0|20
+Bacalao al horno|Baked cod|protein|serving|180|32|2|5
+Boquerones fritos|Fried anchovies|prepared|serving|300|24|10|18
+Calamares a la romana|Fried squid rings|prepared|serving|320|18|24|18
+
+# --- fast food / fried ---
+Pizza margarita (porción)|Pizza margherita (slice)|prepared|serving|270|11|33|10
+Hamburguesa con queso|Cheeseburger|prepared|serving|550|30|40|30
+Perrito caliente|Hot dog|prepared|serving|350|12|30|20
+Patatas fritas (ración)|French fries (portion)|prepared|serving|380|4|48|19
+Patatas bravas|Patatas bravas|prepared|serving|340|5|40|18
+Nuggets de pollo (6)|Chicken nuggets (6)|prepared|serving|290|15|18|18
+Croquetas (3)|Croquettes (3)|prepared|serving|240|8|20|14
+Empanadilla|Small pie|prepared|serving|160|5|16|8
+
+# --- cured meats & cheese (per 100 g) ---
+Jamón serrano|Cured ham|protein|g|240|31|0.3|13
+Jamón cocido|Cooked ham|protein|g|110|18|1|4
+Chorizo|Chorizo|protein|g|455|24|2|38
+Salchichón|Salami|protein|g|390|22|1|32
+Lomo embuchado|Cured pork loin|protein|g|250|43|1|8
+Queso manchego|Manchego cheese|dairy|g|390|26|0.5|32
+Queso fresco|Fresh cheese|dairy|g|145|13|3|9
+Requesón|Ricotta|dairy|g|97|11|3|4
+Queso rallado|Grated cheese|dairy|g|400|28|2|31
+
+# --- dairy (a pot) ---
+Yogur natural|Plain yogurt (pot)|dairy|serving|75|4|6|4
+Yogur desnatado|Skim yogurt (pot)|dairy|serving|55|5|8|0.2
+Yogur griego|Greek yogurt (pot)|dairy|serving|130|4|5|10
+Yogur de sabores|Fruit yogurt (pot)|dairy|serving|120|4|18|3
+Natillas|Custard (pot)|sweet|serving|150|4|22|5
+Flan|Crème caramel|sweet|serving|145|4|24|4
+
+# --- snacks & sweets (per 100 g unless noted) ---
+Patatas fritas de bolsa|Crisps|snack|g|540|6|53|34
+Frutos secos variados|Mixed nuts|nuts|g|600|20|20|50
+Aceitunas|Olives|fat|g|145|1|6|15
+Chocolate con leche|Milk chocolate|sweet|g|535|8|58|30
+Chocolate negro|Dark chocolate|sweet|g|560|7|46|38
+Crema de cacao|Chocolate hazelnut spread|sweet|g|540|6|57|31
+Turrón|Nougat|sweet|g|500|10|50|30
+Helado (bola)|Ice cream (scoop)|sweet|serving|130|2|16|7
+Tarta de queso (porción)|Cheesecake (slice)|sweet|serving|350|6|30|22
+Palmera de chocolate|Chocolate palmier|sweet|serving|320|4|38|17
+Barrita de cereales|Cereal bar|sweet|serving|110|2|18|3
+
+# --- staples & extras (per 100 g) ---
+Pan blanco|White bread|grain|g|265|9|49|3.2
+Pan integral|Whole-wheat bread|grain|g|247|13|41|4
+Pan de molde|Sliced bread|grain|g|250|8|46|4
+Arroz blanco cocido|White rice, cooked|grain|g|130|2.7|28|0.3
+Pasta cocida|Pasta, cooked|grain|g|155|5.8|30|0.9
+Patata cocida|Boiled potato|vegetable|g|85|1.7|20|0.1
+Puré de patata|Mashed potato|prepared|g|110|2|15|4
+Tomate frito|Tomato sauce|condiment|g|85|1.5|11|3.5
+Mayonesa|Mayonnaise|fat|g|680|1|1|75
+Aceite de oliva|Olive oil|fat|g|884|0|0|100
+Mantequilla|Butter|dairy|g|717|0.9|0.1|81
+Miel|Honey|sweet|g|304|0.3|82|0
+Mermelada|Jam|sweet|g|250|0.4|65|0.1
+Azúcar|Sugar|sweet|g|400|0|100|0

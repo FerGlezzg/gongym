@@ -5,7 +5,9 @@ import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, l
 import { fmtNum, fmtDate, todayISO, isoOf, weekKey, weekStartOf, weekDayOffset, DAYS, DAYN } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { bwSheet, goalSheet, dayOverrideSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor } from '../sheets.jsx'
+import { dietOf } from '../lib/nutrition.js'
 import LineChart from '../components/LineChart.jsx'
+import CalorieCard from '../components/CalorieCard.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
@@ -63,7 +65,19 @@ export default function Home() {
   return <div className="narrow">
     <div className="hdr">
       <div><h1>{user ? t('Hi {0}', user.name) : 'openGym'}</h1><div className="sub">{today.toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
-      <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Settings')}><Icon name="gear" /></button>
+      <div className="row" style={{ gap: 8, flex: 'none' }}>
+        {S.workouts.length > 0 && (
+          <button className="iconbtn pill" onClick={() => calendarSheet()} aria-label={t('{0} week streak', streakWeeks(S))} title={t('{0} week streak', streakWeeks(S))}>
+            <Icon name="flame" style={{ color: 'var(--orange)' }} />{streakWeeks(S)}
+          </button>
+        )}
+        {/* The gym check-in cards (QR membership codes) used to be a full row below; this
+            is the way in now, folded away with the same "Gym check-in" switch in Settings. */}
+        {S.checkIn !== false && (
+          <button className="iconbtn" onClick={() => nav('/checkin')} aria-label={t('Check in')} title={t('Check in')}><Icon name="qr" /></button>
+        )}
+        <button className="iconbtn" onClick={() => nav('/settings')} aria-label={t('Settings')}><Icon name="gear" /></button>
+      </div>
     </div>
 
     <div className="card">
@@ -98,23 +112,6 @@ export default function Home() {
           : <Icon name="plus" className="chev" />}
       </div>
     </div>
-
-    {/* Jump to the gym check-in cards (QR membership codes). Shown here as a quick tap on
-        arrival at the gym; folds away per user via the "Gym check-in" switch in Settings. */}
-    {S.checkIn !== false && (
-      <div className="card tappable" style={{ cursor: 'pointer' }} {...tappable(() => nav('/checkin'))}>
-        <div className="row between">
-          <div className="row" style={{ gap: 9 }}>
-            <span className="lrow-i" style={{ background: 'var(--blue)' }}><Icon name="qr" /></span>
-            <div>
-              <div className="lbl2">{t('At the gym')}</div>
-              <div className="ttl">{t('Check in')}</div>
-            </div>
-          </div>
-          <Icon name="chevronRight" className="chev" />
-        </div>
-      </div>
-    )}
 
     {!S.routines.length && !S.active && (
       <div className="card">
@@ -157,6 +154,9 @@ export default function Home() {
         <div className="chart" style={{ marginTop: 8 }}><LineChart points={bwPoints} h={130} unit={S.unit} goal={S.targetW} /></div>
       </> : <div className="muted small">{t("No entries yet — log your weight to start the curve. It's also asked before every workout.")}</div>}
     </div>
+
+    {/* Calories today vs goal — the same summary card as the Diet screen; taps through to it. */}
+    {(dietOf(S).kcalGoal || (S.nutrition || []).length > 0) && <CalorieCard onClick={() => nav('/diet')} />}
 
     <div className="card tappable" style={{ cursor: 'pointer' }} {...tappable(() => calendarSheet())}>
       <div className="row between">

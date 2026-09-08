@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { DAYN, weekOrder, weekStartOf, uid, exCount } from '../lib/format.js'
+import { EXDB } from '../lib/exercises.js'
 import { t } from '../lib/i18n.js'
 import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
@@ -90,6 +91,14 @@ export default function Plan() {
         <div className="empty"><div className="ico"><Icon name="clipboard" /></div>{t('No routines yet.')}<br />{t('Create one or load the starter plan.')}</div>
         <Button icon="sparkles" onClick={starterPlanSheet}>{t('Load starter plan')}</Button>
       </>}
+      {/* The exercise library lost its own tab (that slot is Diet now); this is the way in. */}
+      <div className="list" style={{ marginTop: 12 }}>
+        <div className="item" {...tappable(() => nav('/library'))}>
+          <span className="lrow-i"><Icon name="list" /></span>
+          <div className="grow"><div className="tt">{t('Browse exercises')}</div><div className="ss">{t('{0} exercises with animations', EXDB.length)}</div></div>
+          <Icon name="chevronRight" className="chev" />
+        </div>
+      </div>
     </div></div>
   </>
 }

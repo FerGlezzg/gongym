@@ -45,13 +45,32 @@ export async function scanCode() {
   return barcodes && barcodes.length ? toCode(barcodes[0]) : null
 }
 
+// Live scan restricted to product barcodes (EAN/UPC), for looking a packaged food up in
+// Open Food Facts. App-only, same as scanCode(): the browser/PWA path is CameraScan with
+// BarcodeDetector, which iOS Safari lacks — there the user types the digits instead.
+export async function scanBarcode() {
+  if (!MOBILE) throw new Error('Scanning is only available in the app')
+  const { BarcodeScanner, BarcodeFormat } = await import('@capacitor-mlkit/barcode-scanning')
+
+  const { supported } = await BarcodeScanner.isSupported()
+  if (!supported) throw new Error('unsupported')
+
+  await ensureCameraPermission(BarcodeScanner)
+  await ensureScannerModule(BarcodeScanner)
+
+  const formats = [BarcodeFormat.Ean13, BarcodeFormat.Ean8, BarcodeFormat.UpcA, BarcodeFormat.UpcE].filter(Boolean)
+  const { barcodes } = await BarcodeScanner.scan(formats.length ? { formats } : undefined)
+  const hit = barcodes && barcodes.find(b => /^\d{6,}$/.test(b.rawValue || ''))
+  return hit ? (hit.rawValue || '') : null
+}
+
 // Decode a barcode out of an image the user picked. mlkit's readBarcodesFromImage wants a local
 // file PATH, and a browser <input type=file> only hands us a File/blob — so we bounce the bytes
 // through the app's cache dir (reusing @capacitor/filesystem, already a dependency) to get a real
 // path, decode, then delete the temp file. Returns the first barcode, or null if none was found.
-export async function importCodeFromImage(file) {
+export async function importCodeFromImage(file, { formats } = {}) {
   if (!file) return null
-  if (!MOBILE) return (await import('./scan-web.js')).importCodeFromImageWeb(file)
+  if (!MOBILE) return (await import('./scan-web.js')).importCodeFromImageWeb(file, formats ? { formats } : undefined)
   const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning')
   const { Filesystem, Directory } = await import('@capacitor/filesystem')
 

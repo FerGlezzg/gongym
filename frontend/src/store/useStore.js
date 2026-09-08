@@ -9,6 +9,7 @@ import { loadRemote, chooseLocal, forgetRemote, connect } from '../lib/remote.js
 import { loadCoachDevice, saveCoachDevice, coachDeviceSettings } from '../lib/coach-device.js'
 
 import { WC_DEFAULT } from '../lib/workout-controls.js'
+import { DIET_DEFAULT } from '../lib/nutrition.js'
 
 const KEY = 'gym_state_v1'
 export const DEF = {
@@ -66,6 +67,13 @@ export const DEF = {
   // card and the /checkin route; the saved gymCards stay so turning it back on restores them.
   // Defaults on; an older profile without the key reads as on (`!== false`).
   checkIn: true,
+  // Nutrition (Diet panel). `diet` holds the calorie/macro goal and the BMR inputs behind
+  // the expenditure estimate; consumers read it through dietOf(S) so missing keys fall back
+  // to DIET_DEFAULT (lib/nutrition.js) — the store never deep-merges it, same as `wc`.
+  // `foods` is the reusable personal food list ([{ id, name, kcal, p, c, f }] per serving);
+  // `nutrition` is the intake log, one row per item
+  // ([{ id, d, slot, name, kcal, p, c, f, foodId?, qty }]).
+  diet: { ...DIET_DEFAULT }, foods: [], nutrition: [],
 }
 const clone = o => JSON.parse(JSON.stringify(o))
 

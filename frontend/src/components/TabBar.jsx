@@ -13,7 +13,7 @@ export default function TabBar({ onStart }) {
   const isGuest = useStore(s => s.isGuest())
   if (!user && !isGuest) return null
   const cur = loc.pathname.split('/')[1] || 'home'
-  const on = k => cur === k || (cur === 'history' && k === 'stats') || (cur === 'settings' && k === 'home') || (cur === 'muscles' && k === 'library')
+  const on = k => cur === k || (cur === 'history' && k === 'stats') || (cur === 'settings' && k === 'home')
 
   const startWorkout = () => {
     if (!S.active) {
@@ -41,7 +41,9 @@ export default function TabBar({ onStart }) {
         <span>{S.active ? (cur === 'workout' ? t('Workout') : t('Resume')) : t('Start')}</span>
       </button>
       <Tab k="stats" icon="chart" to="/stats" label={t('Stats')} />
-      <Tab k="library" icon="list" to="/library" label={t('Exercises')} />
+      {/* The exercise library moved under Plan (a row there opens /library); this slot is
+          now the nutrition panel. */}
+      <Tab k="diet" icon="apple" to="/diet" label={t('Diet')} />
     </nav>
   )
 }

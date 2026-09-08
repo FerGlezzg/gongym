@@ -124,6 +124,35 @@ language-model assistance. They are not copied from a separate Portuguese
 dataset. Their review status and translation policy are documented alongside
 the source files.
 
+## Food & nutrition data
+
+### Built-in food catalogue — USDA FoodData Central
+
+The built-in food list (`frontend/src/lib/foods-data.js`, searched from the Diet panel) is
+generated from **USDA FoodData Central**, *SR Legacy* release, by
+`scripts/build-foods.mjs`. FoodData Central is produced by the U.S. Department of
+Agriculture and is a **work of the U.S. government in the public domain** — no licence
+obligation. openGym embeds a curated subset (per-100 g energy and macronutrients only) and
+does not relicense, endorse, or warrant the values. Provenance and the regeneration steps
+are documented in `scripts/food-sources/README.md`.
+
+A small set of everyday foods and dishes (`scripts/food-sources/common-foods.csv`) is
+hand-entered rather than taken from USDA — original data, approximate for composite dishes,
+under openGym's own AGPL licence.
+
+### Barcode lookup — Open Food Facts
+
+Scanning a packaged product's barcode from the Diet panel queries the public
+[**Open Food Facts**](https://world.openfoodfacts.org/) API in real time
+(`frontend/src/lib/off.js`). This is the only part of openGym that contacts a third-party
+service, and only when the user scans or types a barcode; nothing is sent about the user.
+The Open Food Facts database is licensed under the
+[**Open Database License (ODbL) v1.0**](https://opendatacommons.org/licenses/odbl/1-0/) and
+its contents are contributed by its community. openGym **does not redistribute** the
+database — it is not in this repository or the published builds — it only looks products up
+on demand and attributes "Open Food Facts" in the result. A looked-up product is shown for
+the user to confirm and, if kept, stored only in their own food list.
+
 ## Gym check-in QR codes
 
 The gym check-in feature (a saved membership code shown as a QR code on the phone, added by

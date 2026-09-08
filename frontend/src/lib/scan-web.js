@@ -19,14 +19,22 @@ async function loadJsQr() {
   return _jsqr
 }
 
-let _detector = null
-function nativeDetector() {
-  if (_detector !== null) return _detector
+// One BarcodeDetector per format set (QR for the gym check-in, EAN/UPC for food barcodes).
+// iOS Safari has no BarcodeDetector at all, and jsQR only reads QR — so a 1D request there
+// simply finds nothing and the caller falls back to typing the code.
+const _detectors = new Map()
+function nativeDetector(formats = ['qr_code']) {
+  const key = formats.join(',')
+  if (_detectors.has(key)) return _detectors.get(key)
+  let det = false
   try {
-    _detector = (typeof BarcodeDetector === 'function') ? new BarcodeDetector({ formats: ['qr_code'] }) : false
-  } catch (e) { _detector = false }
-  return _detector
+    if (typeof BarcodeDetector === 'function') det = new BarcodeDetector({ formats })
+  } catch (e) { det = false }
+  _detectors.set(key, det)
+  return det
 }
+
+export const BARCODE_1D = ['ean_13', 'ean_8', 'upc_a', 'upc_e']
 
 // { data, width, height } (an ImageData or anything shaped like one) → { value, fmt } | null.
 // jsQR only; the native detector wants a drawable, not raw pixels, so it lives in decodeSource.
@@ -42,7 +50,7 @@ export async function decodeImageData(img) {
 // to run on every few video frames on a phone. Reuses one canvas across calls.
 const MAX = 800
 let _canvas = null
-export async function decodeSource(source) {
+export async function decodeSource(source, { formats = ['qr_code'] } = {}) {
   const sw = source.videoWidth || source.naturalWidth || source.width || 0
   const sh = source.videoHeight || source.naturalHeight || source.height || 0
   if (!sw || !sh) return null
@@ -53,20 +61,22 @@ export async function decodeSource(source) {
   const ctx = _canvas.getContext('2d', { willReadFrequently: true })
   ctx.drawImage(source, 0, 0, w, h)
 
-  const det = nativeDetector()
+  const det = nativeDetector(formats)
   if (det) {
     try {
       const found = await det.detect(_canvas)
       const b = found && found.find(x => x.rawValue)
-      if (b) return { value: b.rawValue, fmt: normalizeFmt(b.format) || 'qrcode' }
+      if (b) return { value: b.rawValue, fmt: normalizeFmt(b.format) || b.format || 'unknown' }
     } catch (e) { /* fall through to jsQR */ }
   }
+  // jsQR is QR-only; for a 1D request there is nothing more to try.
+  if (!formats.includes('qr_code')) return null
   return decodeImageData(ctx.getImageData(0, 0, w, h))
 }
 
 // A picked File → { value, fmt } | null. createImageBitmap honours EXIF orientation where the
 // browser supports it, which matters for photos of a card taken in portrait.
-export async function importCodeFromImageWeb(file) {
+export async function importCodeFromImageWeb(file, { formats = ['qr_code'] } = {}) {
   if (!file) return null
   let bmp
   if (typeof createImageBitmap === 'function') {
@@ -79,5 +89,5 @@ export async function importCodeFromImageWeb(file) {
       img.src = URL.createObjectURL(file)
     })
   }
-  try { return await decodeSource(bmp) } finally { if (bmp.close) bmp.close() }
+  try { return await decodeSource(bmp, { formats }) } finally { if (bmp.close) bmp.close() }
 }
