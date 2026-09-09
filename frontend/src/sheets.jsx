@@ -38,7 +38,7 @@ import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
 import { dietOf, scaleFood, entryAmountLabel, bodyweightKgAt, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
-import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, RECUR, timeLike, NOTIFY_BEFORE } from './lib/events.js'
+import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, eventIconOf, EVENT_ICONS, DEFAULT_EVENT_ICON, RECUR, timeLike, NOTIFY_BEFORE } from './lib/events.js'
 import { loadFoods, foodsReady, foodName, searchFoods, CATEGORY_LABEL, FOOD_CATEGORIES } from './lib/foods.js'
 import { lookupBarcode } from './lib/off.js'
 import { scanBarcode, importCodeFromImage } from './lib/scan.js'
@@ -1577,8 +1577,11 @@ function DayHub({ iso, close }) {
     {(workouts.length > 0 || events.length > 0) && <div className="list" style={{ marginBottom: 14 }}>
       {workouts.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { close(); workoutDetailSheet(w) }} />)}
       {events.map(e => <div key={e.id} className="item" {...tappable(() => { close(); eventSheet(iso, e) })}>
-        <span className="lrow-i" style={{ fontSize: 18 }}>{e.emoji || '📅'}</span>
-        <div className="grow"><div className="tt">{e.name}</div><div className="ss">{[eventTimeLabel(e), eventRepeats(st.events, e) ? t('repeats') : '', e.notify ? '🔔' : ''].filter(Boolean).join(' · ') || t('Event')}</div></div>
+        <span className="lrow-i"><Icon name={eventIconOf(e.emoji)} /></span>
+        <div className="grow"><div className="tt">{e.name}</div><div className="ss">
+          {[eventTimeLabel(e), eventRepeats(st.events, e) ? t('repeats') : ''].filter(Boolean).join(' · ') || t('Event')}
+          {e.notify && <Icon name="bell" style={{ fontSize: 11, marginLeft: 5, verticalAlign: '-1px' }} />}
+        </div></div>
         <Icon name="chevronRight" className="chev" />
       </div>)}
     </div>}
@@ -1593,24 +1596,24 @@ function DayHub({ iso, close }) {
 export const dayHubSheet = iso => ui().openSheet(close => <DayHub iso={iso} close={close} />)
 
 /* ============================ custom event ============================ */
-// A calendar event — a race, a match, a surf session. Its activity type carries an emoji and
+// A calendar event — a race, a match, a surf session. Its activity type carries an icon and
 // an intensity (MET for built-ins, kcal/hour for ones the user made); with a start+end the
-// event shades the heatmap and feeds the day's estimated expenditure. Stored in S.events.
-const EVENT_TYPE_EMOJI = ['⚽', '🏀', '🎾', '🏐', '🏈', '🏓', '🏃', '🚴', '🏊', '🏄', '🥊', '🧗', '⛷️', '🛹', '🚣', '🤸', '🧘', '💃', '🥾', '⛳', '🎳', '📅']
+// event shades the heatmap and feeds the day's estimated expenditure. Stored in S.events;
+// `emoji` is the field name but it holds an icon key (see lib/events.js).
 
 function EventSheet({ iso, event, close }) {
   const st = useStore(s => s.S)
   const bwKg = bodyweightKgAt(st, iso || todayISO())
   const types = eventTypes(st)
   const seedType = event
-    ? types.find(x => x.emoji === event.emoji && (x.met === event.met || x.kcalPerHour === event.kcalPerHour)) || null
+    ? types.find(x => eventIconOf(x.emoji) === eventIconOf(event.emoji) && (x.met === event.met || x.kcalPerHour === event.kcalPerHour)) || null
     : null
 
   const [mode, setMode] = useState(null)                       // null | 'newType'
   const [date, setDate] = useState(event?.d || iso || todayISO())
   const [typeKey, setTypeKey] = useState(seedType?.key || (event ? null : 'run'))
   const [name, setName] = useState(event?.name || '')
-  const [emoji, setEmoji] = useState(event?.emoji || '📅')
+  const [icon, setIcon] = useState(event ? eventIconOf(event.emoji) : DEFAULT_EVENT_ICON)
   const [met, setMet] = useState(event?.met ?? null)
   const [kph, setKph] = useState(event?.kcalPerHour ?? null)
   const [start, setStart] = useState(event?.start || '')
@@ -1623,11 +1626,11 @@ function EventSheet({ iso, event, close }) {
   const [notifyAllDay, setNotifyAllDay] = useState(!!event?.notify?.allDay)
   // new-type form
   const [tName, setTName] = useState('')
-  const [tEmoji, setTEmoji] = useState('📅')
+  const [tIcon, setTIcon] = useState(DEFAULT_EVENT_ICON)
   const [tKph, setTKph] = useState(null)
 
   const pickType = ty => {
-    setTypeKey(ty.key); setEmoji(ty.emoji)
+    setTypeKey(ty.key); setIcon(eventIconOf(ty.emoji))
     setMet(ty.met ?? null); setKph(ty.kcalPerHour ?? null)
     if (!name.trim() && ty.key !== 'other') setName(ty.custom ? ty.name : t(ty.name))
   }
@@ -1649,7 +1652,7 @@ function EventSheet({ iso, event, close }) {
     if (!nm) { toast(t('Give it a name')); return }
     if ((start && !timeLike(start)) || (end && !timeLike(end)) || (!!start !== !!end)) { toast(t('Enter both a start and an end time')); return }
     const row = {
-      name: nm, emoji,
+      name: nm, emoji: icon,
       start: start || null, end: end || null,
       met: met > 0 ? met : null, kcalPerHour: kph > 0 ? kph : null,
       notify: notify || null,
@@ -1684,7 +1687,7 @@ function EventSheet({ iso, event, close }) {
   const saveType = () => {
     const nm = tName.trim()
     if (!nm) { toast(t('Give it a name')); return }
-    const ty = { id: uid(), name: nm, emoji: tEmoji, kcalPerHour: tKph > 0 ? Math.round(tKph) : 0 }
+    const ty = { id: uid(), name: nm, emoji: tIcon, kcalPerHour: tKph > 0 ? Math.round(tKph) : 0 }
     update(s => { (s.eventTypes = s.eventTypes || []).push(ty) })
     setMode(null)
     pickType({ ...ty, key: ty.id, custom: true })
@@ -1694,8 +1697,8 @@ function EventSheet({ iso, event, close }) {
     <h3>{t('New activity type')}</h3>
     <div className="muted small" style={{ marginBottom: 12 }}>{t('For activities not in the list. The kcal/hour feeds the day’s expenditure.')}</div>
     <input className="input" placeholder={t('e.g. Surf')} value={tName} onChange={e => setTName(e.target.value)} />
-    <div className="chips" style={{ margin: '12px 0', gap: 6 }}>
-      {EVENT_TYPE_EMOJI.map(x => <button key={x} className={'chip' + (tEmoji === x ? ' on' : '')} style={{ fontSize: 18, padding: '4px 8px' }} onClick={() => setTEmoji(x)}>{x}</button>)}
+    <div className="glyph-grid" style={{ margin: '12px 0' }}>
+      {EVENT_ICONS.map(ic => <button key={ic} className={'glyph-cell' + (tIcon === ic ? ' on' : '')} aria-label={ic} onClick={() => setTIcon(ic)}><Icon name={ic} /></button>)}
     </div>
     <div className="row cfgrow"><Stepper label={t('Calories per hour')} value={tKph || 0} step={50} decimal={false} onChange={setTKph} /></div>
     <div style={{ height: 14 }} />
@@ -1714,7 +1717,7 @@ function EventSheet({ iso, event, close }) {
     <h4 className="sec" style={{ marginTop: 14 }}>{t('Activity')}</h4>
     <div className="chips" style={{ gap: 6 }}>
       {types.map(ty => <button key={ty.key} className={'chip nocap' + (typeKey === ty.key ? ' on' : '')} onClick={() => pickType(ty)}>
-        <span style={{ fontSize: 15, marginRight: 4 }}>{ty.emoji}</span>{ty.custom ? ty.name : t(ty.name)}
+        <Icon name={eventIconOf(ty.emoji)} style={{ fontSize: 13, marginRight: 5, verticalAlign: '-2px' }} />{ty.custom ? ty.name : t(ty.name)}
       </button>)}
       <button className="chip nocap" onClick={() => setMode('newType')}><Icon name="plus" style={{ fontSize: 12 }} /> {t('New type')}</button>
     </div>

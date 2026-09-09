@@ -6,21 +6,52 @@
 
 // Built-in activity types. MET values from the Compendium of Physical Activities (general
 // recreational intensity); kcal ≈ MET × bodyweight(kg) × hours.
+// `emoji` holds an openGym icon key, not a literal emoji — the same move routines made
+// (see lib/glyphs.js): the chrome is stroke icons that take a theme colour, never emoji.
+// eventIconOf() still reads the old literal-emoji values so synced state needs no migration.
 export const DEFAULT_EVENT_TYPES = [
-  { key: 'run', name: 'Running', emoji: '🏃', met: 9.8 },
-  { key: 'cycling', name: 'Cycling', emoji: '🚴', met: 8 },
-  { key: 'football', name: 'Football', emoji: '⚽', met: 7 },
-  { key: 'basketball', name: 'Basketball', emoji: '🏀', met: 6.5 },
-  { key: 'racket', name: 'Tennis / padel', emoji: '🎾', met: 7 },
-  { key: 'swimming', name: 'Swimming', emoji: '🏊', met: 7 },
-  { key: 'surf', name: 'Surf', emoji: '🏄', met: 5 },
-  { key: 'hiking', name: 'Hiking', emoji: '🥾', met: 6 },
-  { key: 'climbing', name: 'Climbing', emoji: '🧗', met: 8 },
-  { key: 'skiing', name: 'Skiing / snowboard', emoji: '⛷️', met: 7 },
-  { key: 'dancing', name: 'Dancing', emoji: '💃', met: 5 },
-  { key: 'walk', name: 'Walk', emoji: '🚶', met: 3.5 },
-  { key: 'other', name: 'Other', emoji: '📅', met: 0 },
+  { key: 'run', name: 'Running', emoji: 'figureRun', met: 9.8 },
+  { key: 'cycling', name: 'Cycling', emoji: 'bike', met: 8 },
+  { key: 'football', name: 'Football', emoji: 'flag', met: 7 },
+  { key: 'basketball', name: 'Basketball', emoji: 'flag', met: 6.5 },
+  { key: 'racket', name: 'Tennis / padel', emoji: 'flag', met: 7 },
+  { key: 'swimming', name: 'Swimming', emoji: 'swim', met: 7 },
+  { key: 'surf', name: 'Surf', emoji: 'swim', met: 5 },
+  { key: 'hiking', name: 'Hiking', emoji: 'figureRun', met: 6 },
+  { key: 'climbing', name: 'Climbing', emoji: 'pullup', met: 8 },
+  { key: 'skiing', name: 'Skiing / snowboard', emoji: 'figureRun', met: 7 },
+  { key: 'dancing', name: 'Dancing', emoji: 'stretch', met: 5 },
+  { key: 'walk', name: 'Walk', emoji: 'figureRun', met: 3.5 },
+  { key: 'other', name: 'Other', emoji: 'calendar', met: 0 },
 ]
+
+// The icons the new-activity-type form and the per-event override offer.
+export const EVENT_ICONS = [
+  'figureRun', 'bike', 'swim', 'boxing', 'pullup', 'stretch', 'dumbbell', 'kettlebell',
+  'heart', 'flame', 'bolt', 'target', 'flag', 'trophy', 'medal', 'star', 'rocket',
+  'sparkles', 'globe', 'apple', 'clock', 'calendar',
+]
+export const DEFAULT_EVENT_ICON = 'calendar'
+
+// Legacy literal-emoji → icon key, so events and custom types saved before the icon switch
+// (and any state synced from an older build) still show a sensible glyph.
+const EVENT_LEGACY = {
+  '🏃': 'figureRun', '🏃‍♀️': 'figureRun', '🚶': 'figureRun', '🥾': 'figureRun', '🏔️': 'figureRun', '⛰️': 'figureRun',
+  '🚴': 'bike', '🏊': 'swim', '🏄': 'swim', '🚣': 'swim', '⛷️': 'figureRun', '🏂': 'figureRun', '⛸️': 'figureRun', '🛹': 'figureRun',
+  '⚽': 'flag', '🏀': 'flag', '🎾': 'flag', '🏐': 'flag', '🏈': 'flag', '🏓': 'flag', '⛳': 'flag', '🎳': 'flag',
+  '🥊': 'boxing', '🧗': 'pullup', '🤸': 'stretch', '🧘': 'stretch', '🧘‍♀️': 'stretch', '💃': 'stretch',
+  '🏋️': 'dumbbell', '🏆': 'trophy', '🥇': 'medal', '⭐': 'star', '🎯': 'target', '🔥': 'flame', '⚡': 'bolt',
+  '❤️': 'heart', '❤️‍🔥': 'heart', '🚀': 'rocket', '🌍': 'globe', '🍎': 'apple', '📅': 'calendar', '🗓️': 'calendar',
+}
+
+/** An event's / activity type's `emoji` value resolved to an openGym icon name. */
+export function eventIconOf(v) {
+  if (!v) return DEFAULT_EVENT_ICON
+  if (EVENT_LEGACY[v]) return EVENT_LEGACY[v]
+  const base = [...String(v)].filter(c => c !== '️' && c !== '‍')[0]
+  if (EVENT_LEGACY[base]) return EVENT_LEGACY[base]
+  return /^[a-zA-Z]+$/.test(v) ? v : DEFAULT_EVENT_ICON
+}
 
 /** Built-in types plus the user's own (S.eventTypes), each with a stable `key`. */
 export function eventTypes(S) {

@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react'
 import { fmtVol, isoOf, todayISO, MONTHS, DAYS, weekOrder, weekStartOf, weekDayOffset } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
 import { tappable } from '../lib/use-sheet-keyboard.js'
-import { eventMinutes } from '../lib/events.js'
+import { eventMinutes, eventIconOf } from '../lib/events.js'
+import Icon from './Icon.jsx'
 
 const HeatLegend = () => (
   <div className="hm-legend">{t('Less time')} <div className="hm-c l0" /><div className="hm-c l1" /><div className="hm-c l2" /><div className="hm-c l3" /><div className="hm-c l4" /> {t('More time')}</div>
@@ -70,7 +71,7 @@ export default function Heatmap({ S, onDay, view, dots, events, month, onNav }) 
       const trained = !!(a && a.n > 0)
       const dot = !a && dots ? dots(key) : null      // shaded days carry no dot
       const ev = events ? events(key) : null
-      const emoji = typeof ev === 'string' ? ev : ev?.emoji || null
+      const evIcon = ev ? eventIconOf(typeof ev === 'string' ? ev : ev.emoji) : null
       const cls = 'hm-md l' + level(a) + (key === todayISO() ? ' today' : '') + (key > todayISO() ? ' future' : '') + (trained ? ' trained' : '')
       cells.push(<div key={d} className={cls}
         title={key
@@ -79,7 +80,7 @@ export default function Heatmap({ S, onDay, view, dots, events, month, onNav }) 
           + (ev?.name ? ` · ${ev.name}` : '')}
         {...tappable(onDay ? () => onDay(key) : undefined)}>
         <span>{d}</span>
-        {(dot || emoji) && <span className="hm-mk">{dot && <i className={'d ' + dot} />}{emoji && <span className="e">{emoji}</span>}</span>}
+        {(dot || evIcon) && <span className="hm-mk">{dot && <i className={'d ' + dot} />}{evIcon && <Icon name={evIcon} className="e" />}</span>}
       </div>)
     }
     return <>

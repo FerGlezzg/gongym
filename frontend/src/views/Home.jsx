@@ -6,6 +6,7 @@ import { fmtNum, fmtDate, todayISO, DAYN, MONTHS_LONG } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { bwSheet, goalSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, dayHubSheet, weekPresetsSheet, monthPickerSheet } from '../sheets.jsx'
 import { dietOf } from '../lib/nutrition.js'
+import { eventIconOf } from '../lib/events.js'
 import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import CalorieCard from '../components/CalorieCard.jsx'
@@ -101,10 +102,10 @@ export default function Home() {
             <div className="ttl">{S.active ? t('{0} — in progress', S.active.name)
               : doneToday ? (doneToday.name ? t('{0} — done', doneToday.name) : t('Workout done'))
               : routine ? todayName
-              : todayEvents.length ? todayEvents[0].emoji + ' ' + todayEvents[0].name
+              : todayEvents.length ? todayEvents[0].name
               : t('Rest day')}{todayOvr && routine && !doneToday ? ' · ' + t('rescheduled') : ''}</div>
             {next && !doneToday && <div className="ss">{t('Next session: {0}, {1}', t(DAYN[next.weekday]), next.routine.name)}</div>}
-            {(routine || doneToday) && todayEvents.length > 0 && <div className="ss">{todayEvents[0].emoji} {todayEvents[0].name}</div>}
+            {(routine || doneToday) && todayEvents.length > 0 && <div className="ss"><Icon name={eventIconOf(todayEvents[0].emoji)} style={{ fontSize: 12, marginRight: 4 }} />{todayEvents[0].name}</div>}
           </div>
         </div>
         {S.active ? <span className="tag" style={{ color: 'var(--orange)', background: 'color-mix(in srgb,var(--orange) 16%,transparent)' }}>{t('Resume')}</span>

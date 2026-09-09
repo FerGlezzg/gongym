@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { t } from '../lib/i18n.js'
 import { fmtDate } from '../lib/format.js'
+import { eventIconOf } from '../lib/events.js'
 import { WorkoutRow, workoutDetailSheet, logPastWorkoutSheet, eventSheet } from '../sheets.jsx'
 import { Button } from '../components/ui.jsx'
 import Icon from '../components/Icon.jsx'
@@ -9,7 +10,7 @@ import { tappable } from '../lib/use-sheet-keyboard.js'
 
 function EventRow({ e }) {
   return <div className="item" {...tappable(() => eventSheet(e.d, e))}>
-    <span className="lrow-i" style={{ fontSize: 18 }}>{e.emoji || '📅'}</span>
+    <span className="lrow-i"><Icon name={eventIconOf(e.emoji)} /></span>
     <div className="grow"><div className="tt">{e.name}</div><div className="ss">{fmtDate(e.d, true)} · {t('Event')}</div></div>
     <Icon name="chevronRight" className="chev" />
   </div>

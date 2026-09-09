@@ -1,10 +1,27 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_EVENT_TYPES, eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, RECUR, eventNotifTimes } from './events.js'
+import { DEFAULT_EVENT_TYPES, eventTypes, eventIconOf, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, RECUR, eventNotifTimes } from './events.js'
 
 describe('DEFAULT_EVENT_TYPES', () => {
-  it('includes surf and a zero-MET fallback', () => {
-    expect(DEFAULT_EVENT_TYPES.some(t => t.key === 'surf' && t.emoji === '🏄')).toBe(true)
+  it('includes surf and a zero-MET fallback, and carries icon keys not emoji', () => {
+    expect(DEFAULT_EVENT_TYPES.some(t => t.key === 'surf')).toBe(true)
     expect(DEFAULT_EVENT_TYPES.find(t => t.key === 'other').met).toBe(0)
+    expect(DEFAULT_EVENT_TYPES.every(t => /^[a-zA-Z]+$/.test(t.emoji))).toBe(true)
+  })
+})
+
+describe('eventIconOf', () => {
+  it('passes an icon key through', () => {
+    expect(eventIconOf('figureRun')).toBe('figureRun')
+    expect(eventIconOf('bike')).toBe('bike')
+  })
+  it('maps a legacy literal emoji to an icon', () => {
+    expect(eventIconOf('🏃')).toBe('figureRun')
+    expect(eventIconOf('⚽')).toBe('flag')
+    expect(eventIconOf('⛷️')).toBe('figureRun')
+  })
+  it('falls back to calendar for empty or unknown', () => {
+    expect(eventIconOf(null)).toBe('calendar')
+    expect(eventIconOf('🥏')).toBe('calendar')
   })
 })
 
