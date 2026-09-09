@@ -6,11 +6,11 @@ import { EXDB, EXIDX } from '../lib/exercises.js'
 import { bestWeightFor } from '../lib/history.js'
 import { favIds } from '../lib/favourites.js'
 import { bodyweightKgAt } from '../lib/nutrition.js'
-import { eventKcal, eventTimeLabel, eventRepeats, eventIconOf } from '../lib/events.js'
+import { eventKcal, eventTimeLabel, eventRepeats, eventIconOf, seriesFrequency, RECUR } from '../lib/events.js'
 import { t, exerciseNameFor } from '../lib/i18n.js'
 import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet, exerciseDetailSheet, addToRoutineSheet, weekPresetsSheet, eventSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
-import { Button, Segmented } from '../components/ui.jsx'
+import { Button, Segmented, Switch } from '../components/ui.jsx'
 import { Thumb } from '../components/Media.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
 import { glyphOf, DEFAULT_GLYPH } from '../lib/glyphs.js'
@@ -25,7 +25,9 @@ export default function Plan() {
   const config = useStore(s => s.config)
   const coachMode = useStore(s => s.coachLocal?.mode)
   const user = useStore(s => s.user)
-  const [tab, setTab] = useState('week')   // 'week' | 'routines' | 'exercises'
+  const [tab, setTab] = useState('week')   // 'week' | 'routines' | 'exercises' | 'events'
+  const [evWin, setEvWin] = useState('15d')   // Events tab: how far ahead to look
+  const [evGroup, setEvGroup] = useState(true) // ...and whether to collapse a repeating series to one row
 
   /* The Coach's only entry point in the app. Its screens have existed since the UI landed and
      nothing linked to them, so the feature was reachable only by typing the URL — enabled,
@@ -48,14 +50,37 @@ export default function Plan() {
   const favExercises = favIds(S).map(id => EXIDX[id]).filter(Boolean)
   const activePreset = (S.weekPresets || []).find(p => p.id === S.activeWeekId)
 
-  // Events grouped by day for the next 15 days (Events tab).
+  // Events tab: the events falling inside the chosen look-ahead window, grouped by day.
+  // With `evGroup` on, only the first occurrence of each repeating series is shown.
+  const EV_WINDOWS = [
+    { value: '15d', label: t('15 days'), days: 15 },
+    { value: '1mo', label: t('1 month'), days: 31 },
+    { value: '6mo', label: t('6 months'), days: 183 },
+    { value: '1y', label: t('1 year'), days: 366 },
+  ]
+  const evToday = todayISO()
+  const evEnd = isoOf(new Date(new Date(evToday + 'T12:00:00').getTime()
+    + (EV_WINDOWS.find(w => w.value === evWin) || EV_WINDOWS[0]).days * 86400000))
+  const evWindow = (S.events || [])
+    .filter(e => e.d >= evToday && e.d <= evEnd)
+    .sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : String(a.start || '').localeCompare(String(b.start || '')))
+  const evSeen = new Set()
+  const evShown = evGroup
+    ? evWindow.filter(e => !e.series || (!evSeen.has(e.series) && evSeen.add(e.series)))
+    : evWindow
   const upcoming = []
-  const base = new Date(todayISO() + 'T12:00:00')
-  for (let i = 0; i < 15; i++) {
-    const d = new Date(base); d.setDate(base.getDate() + i)
-    const iso = isoOf(d)
-    const evs = (S.events || []).filter(e => e.d === iso)
-    if (evs.length) upcoming.push({ iso, evs })
+  for (const e of evShown) {
+    const last = upcoming[upcoming.length - 1]
+    if (last && last.iso === e.d) last.evs.push(e)
+    else upcoming.push({ iso: e.d, evs: [e] })
+  }
+  // Subtitle for a series row when it stands in for the whole series: the cadence, and how
+  // many occurrences fall in the window.
+  const evSeriesLabel = e => {
+    const f = seriesFrequency(S.events, e)
+    const n = evWindow.filter(x => x.series === e.series).length
+    const base = f !== 'none' && RECUR[f] ? t(RECUR[f].label) : t('repeats')
+    return n > 1 ? `${base} · ×${n}` : base
   }
 
   return <>
@@ -167,20 +192,28 @@ export default function Plan() {
 
     {tab === 'events' && <>
       <div className="row between" style={{ marginTop: 4, marginBottom: 10 }}>
-        <h4 className="sec" style={{ margin: 0 }}>{t('Upcoming events')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('next 15 days')}</span></h4>
+        <h4 className="sec" style={{ margin: 0 }}>{t('Upcoming events')}</h4>
         <Button size="sm" variant="tinted" icon="plus" onClick={() => eventSheet()}>{t('New')}</Button>
+      </div>
+      <Segmented className="seg-range" value={evWin} onChange={setEvWin}
+        options={EV_WINDOWS.map(w => ({ value: w.value, label: w.label }))} />
+      <div className="row" style={{ gap: 9, margin: '2px 2px 14px', alignItems: 'center' }}>
+        <Switch checked={evGroup} onChange={setEvGroup} />
+        <span className="small" style={{ color: 'var(--label-2)' }} {...tappable(() => setEvGroup(v => !v))}>{t('Group repeats')}</span>
       </div>
       {upcoming.length ? upcoming.map(({ iso, evs }) => (
         <div key={iso} style={{ marginBottom: 12 }}>
           <div className="small dim" style={{ marginBottom: 4, textTransform: 'capitalize' }}>{fmtDate(iso, true)}</div>
           <div className="list">{evs.map(e => {
             const kcal = eventKcal(e, bodyweightKgAt(S, iso))
+            const grouped = evGroup && !!e.series
             return <div key={e.id} className="item" {...tappable(() => eventSheet(iso, e))}>
               <span className="lrow-i"><Icon name={eventIconOf(e.emoji)} /></span>
               <div className="grow" style={{ minWidth: 0 }}>
                 <div className="tt">{e.name}</div>
                 <div className="ss">
-                  {[eventTimeLabel(e), kcal > 0 ? '≈ ' + fmtNum(kcal) + ' ' + t('kcal') : '', eventRepeats(S.events, e) ? t('repeats') : ''].filter(Boolean).join(' · ') || t('Event')}
+                  {[eventTimeLabel(e), kcal > 0 ? '≈ ' + fmtNum(kcal) + ' ' + t('kcal') : '',
+                    grouped ? evSeriesLabel(e) : (eventRepeats(S.events, e) ? t('repeats') : '')].filter(Boolean).join(' · ') || t('Event')}
                   {e.notify && <Icon name="bell" style={{ fontSize: 11, marginLeft: 5, verticalAlign: '-1px' }} />}
                 </div>
               </div>
@@ -190,7 +223,7 @@ export default function Plan() {
         </div>
       )) : <div className="empty">
         <div className="ico"><Icon name="flag" /></div>
-        {t('No events in the next 15 days.')}<br />{t('Add a race, a match, anything worth marking.')}
+        {t('No events in this period.')}<br />{t('Add a race, a match, anything worth marking.')}
       </div>}
       <Button icon="plus" onClick={() => eventSheet()}>{t('New event')}</Button>
     </>}
