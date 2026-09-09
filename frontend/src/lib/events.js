@@ -144,16 +144,23 @@ export function seriesFrequency(events, event) {
   return Object.keys(RECUR).find(f => f !== 'none' && expandRecurrence(event.d, f)[1] === next) || 'none'
 }
 
+/** Whether this event is currently one of several sharing a series — i.e. it actually repeats. */
+export function eventRepeats(events, event) {
+  return !!(event && event.series && (events || []).some(e => e.series === event.series && e.id !== event.id))
+}
+
 /**
  * Plan an edit to `event` whose recurrence may have changed from `prevFreq` to `freq`.
  * Only a changed frequency touches the series; then it rewrites this occurrence forward.
- * Pure — returns the ids to drop and the dates to (re)create, for the caller to apply.
+ * Turning the repeat off detaches this occurrence from the series (later ones are dropped),
+ * so it stops reading as "repeats". Pure — returns the ids to drop and the dates to
+ * (re)create, for the caller to apply.
  * @returns {{ series: string|null, removeIds: string[], forwardDates: string[] }}
  */
 export function planEventEdit(events, event, { date, freq, prevFreq, seriesId }) {
   const recurChanged = freq !== prevFreq
   const forwardDates = recurChanged && freq !== 'none' ? expandRecurrence(date, freq).slice(1) : []
-  const series = forwardDates.length ? seriesId : (event.series || null)
+  const series = forwardDates.length ? seriesId : (freq === 'none' ? null : (event.series || null))
   const removeIds = recurChanged && event.series
     ? (events || []).filter(x => x.series === event.series && x.id !== event.id && x.d > date).map(x => x.id)
     : []

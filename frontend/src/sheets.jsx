@@ -38,7 +38,7 @@ import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
 import { dietOf, scaleFood, entryAmountLabel, bodyweightKgAt, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
-import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, RECUR, timeLike, NOTIFY_BEFORE } from './lib/events.js'
+import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, RECUR, timeLike, NOTIFY_BEFORE } from './lib/events.js'
 import { loadFoods, foodsReady, foodName, searchFoods, CATEGORY_LABEL, FOOD_CATEGORIES } from './lib/foods.js'
 import { lookupBarcode } from './lib/off.js'
 import { scanBarcode, importCodeFromImage } from './lib/scan.js'
@@ -1578,7 +1578,7 @@ function DayHub({ iso, close }) {
       {workouts.map(w => <WorkoutRow key={w.id} w={w} onClick={() => { close(); workoutDetailSheet(w) }} />)}
       {events.map(e => <div key={e.id} className="item" {...tappable(() => { close(); eventSheet(iso, e) })}>
         <span className="lrow-i" style={{ fontSize: 18 }}>{e.emoji || '📅'}</span>
-        <div className="grow"><div className="tt">{e.name}</div><div className="ss">{[eventTimeLabel(e), e.series ? t('repeats') : '', e.notify ? '🔔' : ''].filter(Boolean).join(' · ') || t('Event')}</div></div>
+        <div className="grow"><div className="tt">{e.name}</div><div className="ss">{[eventTimeLabel(e), eventRepeats(st.events, e) ? t('repeats') : '', e.notify ? '🔔' : ''].filter(Boolean).join(' · ') || t('Event')}</div></div>
         <Icon name="chevronRight" className="chev" />
       </div>)}
     </div>}
