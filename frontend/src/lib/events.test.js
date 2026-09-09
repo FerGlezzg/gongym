@@ -18,6 +18,7 @@ describe('eventIconOf', () => {
     expect(eventIconOf('🏃')).toBe('figureRun')
     expect(eventIconOf('⚽')).toBe('flag')
     expect(eventIconOf('⛷️')).toBe('figureRun')
+    expect(eventIconOf('🏄')).toBe('surf')   // its own icon, not swim
   })
   it('falls back to calendar for empty or unknown', () => {
     expect(eventIconOf(null)).toBe('calendar')
