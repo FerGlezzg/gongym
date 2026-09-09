@@ -144,7 +144,7 @@ export function buildEventNotifications(S, now = new Date()) {
       if (at <= now || at > horizon) continue
       pending.push({
         kind, at,
-        title: `${ev.emoji || '📅'} ${ev.name}`,
+        title: ev.name,
         body: kind === 'before' ? t('Starts at {0}', ev.start) : t('All day'),
       })
     }

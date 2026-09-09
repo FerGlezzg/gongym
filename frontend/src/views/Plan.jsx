@@ -6,7 +6,7 @@ import { EXDB, EXIDX } from '../lib/exercises.js'
 import { bestWeightFor } from '../lib/history.js'
 import { favIds } from '../lib/favourites.js'
 import { bodyweightKgAt } from '../lib/nutrition.js'
-import { eventKcal, eventTimeLabel, eventRepeats } from '../lib/events.js'
+import { eventKcal, eventTimeLabel, eventRepeats, eventIconOf } from '../lib/events.js'
 import { t, exerciseNameFor } from '../lib/i18n.js'
 import { dayAssignSheet, dayAddRoutineSheet, starterPlanSheet, planToolsSheet, exerciseDetailSheet, addToRoutineSheet, weekPresetsSheet, eventSheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
@@ -176,10 +176,13 @@ export default function Plan() {
           <div className="list">{evs.map(e => {
             const kcal = eventKcal(e, bodyweightKgAt(S, iso))
             return <div key={e.id} className="item" {...tappable(() => eventSheet(iso, e))}>
-              <span className="lrow-i" style={{ fontSize: 18 }}>{e.emoji || '📅'}</span>
+              <span className="lrow-i"><Icon name={eventIconOf(e.emoji)} /></span>
               <div className="grow" style={{ minWidth: 0 }}>
                 <div className="tt">{e.name}</div>
-                <div className="ss">{[eventTimeLabel(e), kcal > 0 ? '≈ ' + fmtNum(kcal) + ' ' + t('kcal') : '', eventRepeats(S.events, e) ? t('repeats') : '', e.notify ? '🔔' : ''].filter(Boolean).join(' · ') || t('Event')}</div>
+                <div className="ss">
+                  {[eventTimeLabel(e), kcal > 0 ? '≈ ' + fmtNum(kcal) + ' ' + t('kcal') : '', eventRepeats(S.events, e) ? t('repeats') : ''].filter(Boolean).join(' · ') || t('Event')}
+                  {e.notify && <Icon name="bell" style={{ fontSize: 11, marginLeft: 5, verticalAlign: '-1px' }} />}
+                </div>
               </div>
               <Icon name="chevronRight" className="chev" />
             </div>

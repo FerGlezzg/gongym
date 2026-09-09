@@ -46,7 +46,7 @@ export function dayReminderPush(lang, routine) {
 export function eventPush(lang, ev, kind) {
   const copy = copyFor(lang);
   return {
-    title: `${ev.emoji || '📅'} ${ev.name}`,
+    title: ev.name,
     body: kind === 'before' && ev.start ? copy.eventBefore(ev.start) : copy.eventToday,
     tag: 'event-' + ev.id,
   };
