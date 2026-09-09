@@ -28,7 +28,7 @@ describe('Brazilian Portuguese locale', () => {
     const fingerprint = createHash('sha256').update(JSON.stringify(inherited)).digest('hex')
 
     expect(Object.keys(PT_BR_OVERRIDES)).toHaveLength(631)
-    expect(inherited).toHaveLength(840)
+    expect(inherited).toHaveLength(846)
     // If this fails, review the changed keys and wording before accepting a new hash. From
     // frontend/: node scripts/pt-br-inheritance-fingerprint.mjs --list
     // 2026-09: +194 Diet / food-database / Plan / Home / calendar-events / recurring-events /
@@ -36,7 +36,8 @@ describe('Brazilian Portuguese locale', () => {
     // 2026-09: +4 Home heatmap month/year navigation aria-labels, translated in pt-PT.
     // 2026-09: +2 event-repeat edit hints, translated in pt-PT.
     // 2026-09: +2 one-sheet "log a past workout" strings, translated in pt-PT.
-    expect(fingerprint, 'pt-PT inheritance changed; review the inherited pt-BR wording').toBe('3b17a673175a11c8e3eb27b8b7eb113a94d57377e8c5cdd93c6e87c67e963fb2')
+    // 2026-09: +6 Events-tab window filter + "group repeats" strings, translated in pt-PT.
+    expect(fingerprint, 'pt-PT inheritance changed; review the inherited pt-BR wording').toBe('28b2d12d45e8043dc3cdad640a998bf6d84c912902b7721c108f03f20f5e7e50')
   })
 
   test('does not leak European Portuguese UI terms', () => {
