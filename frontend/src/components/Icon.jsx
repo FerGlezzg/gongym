@@ -65,6 +65,9 @@ const P = {
   swim: <><circle cx="8.8" cy="8.2" r="1.8" /><path d="m10.9 10 4.6-2.2 3.3 3.4" /><path d="M3.5 15.6c1.6-1.3 3.1-1.3 4.7 0s3.1 1.3 4.7 0 3.1-1.3 4.7 0c.9.7 1.7.9 2.6.5" /></>,
   boxing: <><path d="M7.6 8.6A4.6 4.6 0 0 1 12.2 4h1.6a5.4 5.4 0 0 1 5.4 5.4v2.4a3 3 0 0 1-3 3H7.6Z" /><path d="M7.6 14.8v2.3a2.6 2.6 0 0 0 2.6 2.6h5.2a2.6 2.6 0 0 0 2.6-2.6v-2.3" /><path d="M7.6 9.8H6.3a1.8 1.8 0 0 0 0 3.6h1.3" /></>,
   stretch: <><circle cx="14.4" cy="5.4" r="1.9" /><path d="M14.4 8.2c-3 1.4-5 4-5.8 7.4" /><path d="M8.6 15.6 6.2 20M8.6 15.6l4.6 4.4" /><path d="M12.6 9.6 18 12" /></>,
+  // A surfboard stood on its tail with the stringer line down the middle — the
+  // board silhouette, so it reads as "surf" and not "swim" (which is all wave).
+  surf: <><path d="M12 3.4c2.5 3.1 3.6 7.3 3.6 11.3 0 3-1.5 5.5-3.6 6.7-2.1-1.2-3.6-3.7-3.6-6.7 0-4 1.1-8.2 3.6-11.3Z" /><path d="M12 6v13.4" /></>,
 
   /* ---- actions ---- */
   plus: <path d="M12 5.2v13.6M5.2 12h13.6" />,

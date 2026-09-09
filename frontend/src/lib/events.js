@@ -16,7 +16,7 @@ export const DEFAULT_EVENT_TYPES = [
   { key: 'basketball', name: 'Basketball', emoji: 'flag', met: 6.5 },
   { key: 'racket', name: 'Tennis / padel', emoji: 'flag', met: 7 },
   { key: 'swimming', name: 'Swimming', emoji: 'swim', met: 7 },
-  { key: 'surf', name: 'Surf', emoji: 'swim', met: 5 },
+  { key: 'surf', name: 'Surf', emoji: 'surf', met: 5 },
   { key: 'hiking', name: 'Hiking', emoji: 'figureRun', met: 6 },
   { key: 'climbing', name: 'Climbing', emoji: 'pullup', met: 8 },
   { key: 'skiing', name: 'Skiing / snowboard', emoji: 'figureRun', met: 7 },
@@ -27,7 +27,7 @@ export const DEFAULT_EVENT_TYPES = [
 
 // The icons the new-activity-type form and the per-event override offer.
 export const EVENT_ICONS = [
-  'figureRun', 'bike', 'swim', 'boxing', 'pullup', 'stretch', 'dumbbell', 'kettlebell',
+  'figureRun', 'bike', 'swim', 'surf', 'boxing', 'pullup', 'stretch', 'dumbbell', 'kettlebell',
   'heart', 'flame', 'bolt', 'target', 'flag', 'trophy', 'medal', 'star', 'rocket',
   'sparkles', 'globe', 'apple', 'clock', 'calendar',
 ]
@@ -37,7 +37,7 @@ export const DEFAULT_EVENT_ICON = 'calendar'
 // (and any state synced from an older build) still show a sensible glyph.
 const EVENT_LEGACY = {
   '🏃': 'figureRun', '🏃‍♀️': 'figureRun', '🚶': 'figureRun', '🥾': 'figureRun', '🏔️': 'figureRun', '⛰️': 'figureRun',
-  '🚴': 'bike', '🏊': 'swim', '🏄': 'swim', '🚣': 'swim', '⛷️': 'figureRun', '🏂': 'figureRun', '⛸️': 'figureRun', '🛹': 'figureRun',
+  '🚴': 'bike', '🏊': 'swim', '🏄': 'surf', '🏄‍♂️': 'surf', '🏄‍♀️': 'surf', '🚣': 'swim', '⛷️': 'figureRun', '🏂': 'figureRun', '⛸️': 'figureRun', '🛹': 'figureRun',
   '⚽': 'flag', '🏀': 'flag', '🎾': 'flag', '🏐': 'flag', '🏈': 'flag', '🏓': 'flag', '⛳': 'flag', '🎳': 'flag',
   '🥊': 'boxing', '🧗': 'pullup', '🤸': 'stretch', '🧘': 'stretch', '🧘‍♀️': 'stretch', '💃': 'stretch',
   '🏋️': 'dumbbell', '🏆': 'trophy', '🥇': 'medal', '⭐': 'star', '🎯': 'target', '🔥': 'flame', '⚡': 'bolt',
