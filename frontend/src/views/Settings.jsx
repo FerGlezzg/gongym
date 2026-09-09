@@ -533,7 +533,13 @@ function PushCard({ S, update, toast }) {
     setBusy(true)
     try {
       if (!v) { await disablePush(); setOn(false); toast(t('Notifications off')) }
-      else { await enablePush(); setOn(true); toast(t('Notifications on')) }
+      else {
+        await enablePush(); setOn(true); toast(t('Notifications on'))
+        // Event notifications work without the workout-day reminder, so stamp the timezone
+        // here too — the server falls back to UTC and fires at the wrong minute without it.
+        const tz = localTZ()
+        if (tz && S.reminder?.tz !== tz) update(s => { s.reminder = { ...(s.reminder || DEF.reminder), tz } })
+      }
     } catch (e) { toast(e.message || t('Could not change notification settings')) }
     setBusy(false)
   }

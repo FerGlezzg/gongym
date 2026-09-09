@@ -218,8 +218,9 @@ on-device local notifications, which are not affected.
 
 No setup needed server-side, and nothing to configure per timezone: VAPID keys are generated on
 first run and saved to `./data/vapid.json`, and each user's browser reports its own timezone
-automatically when they turn the reminder on — it fires at their local time, and follows them if
-they travel, regardless of what timezone the server itself runs in.
+automatically — stamped when they turn push on and re-checked on every app load, so alerts fire
+at their local time and follow them if they travel, regardless of the server's own timezone.
+(Before this was stored, the server fell back to UTC and fired at the wrong minute.)
 
 **Keep screen awake** (Settings → *During a workout*) has the same transport requirement: the
 Wake Lock API is only available over HTTPS or on `http://localhost`, so on a plain-LAN-IP

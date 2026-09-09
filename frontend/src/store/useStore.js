@@ -362,11 +362,13 @@ export const useStore = create((set, get) => {
         const me = await api('/api/me')
         get().setUser(me.user)
         await get().pullState()
-        // Re-stamp the reminder's timezone on every load — keeps it correct if you're travelling,
-        // without needing to revisit Settings.
+        // Re-stamp the reminder's timezone on every load — keeps it correct if you're
+        // travelling, without needing to revisit Settings. Stamped whenever it is missing or
+        // stale, not only when the workout-day reminder is on: event notifications use the
+        // same tz and don't need that toggle, and the server falls back to UTC without it.
         const tz = localTZ()
-        if (get().S.reminder?.on && get().S.reminder.tz !== tz) {
-          get().update(s => { s.reminder = { ...s.reminder, tz } })
+        if (tz && get().S.reminder?.tz !== tz) {
+          get().update(s => { s.reminder = { ...(s.reminder || {}), tz } })
         }
       } catch (e) {
         if (e.status === 401) get().setUser(null)
