@@ -40,6 +40,10 @@ function renderChart(points) {
   act(() => root.render(<LineChart points={points} axes={false} unit="kg" />))
 }
 
+function renderMulti(series) {
+  act(() => root.render(<LineChart series={series} axes={false} unit="kcal" />))
+}
+
 function hoverAt(clientX) {
   act(() => {
     container.querySelector('.chart-i').dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX }))
@@ -79,6 +83,37 @@ describe('LineChart hover date', () => {
 
     const lastIso = isoOf(new Date(last.t))
     expect(hoverAt(340)).toBe(`${fmtDate(lastIso, true, true)} · 71 kg`)
+  })
+})
+
+describe('LineChart multi-series', () => {
+  const mk = (color, key, label, pts) => ({ key, label, color, points: pts })
+
+  it('hovering shows one tooltip row per series sharing that date', () => {
+    const intake = [{ t: Date.UTC(2026, 0, 10), y: 2000, d: '2026-01-10' }, { t: Date.UTC(2026, 0, 11), y: 2100, d: '2026-01-11' }]
+    const burn = [{ t: Date.UTC(2026, 0, 10), y: 2500, d: '2026-01-10' }, { t: Date.UTC(2026, 0, 11), y: 2600, d: '2026-01-11' }]
+    renderMulti([mk('var(--blue)', 'intake', 'Intake', intake), mk('var(--yellow)', 'burn', 'Burn', burn)])
+
+    act(() => { container.querySelector('.chart-i').dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 0 })) })
+    const rows = [...container.querySelectorAll('.ctip.mctip .mctip-r')].map(r => r.textContent)
+    expect(rows).toEqual(['Intake 2,000 kcal', 'Burn 2,500 kcal'])
+  })
+
+  it('a date only one series has still gets a hover stop, with just that row', () => {
+    const intakePts = [{ t: Date.UTC(2026, 0, 10), y: 2000, d: '2026-01-10' }]
+    const balancePts = [{ t: Date.UTC(2026, 0, 11), y: -300, d: '2026-01-11' }]
+    renderMulti([mk('var(--blue)', 'intake', 'Intake', intakePts), mk('var(--acc)', 'balance', 'Balance', balancePts)])
+
+    act(() => { container.querySelector('.chart-i').dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 340 })) })
+    const rows = [...container.querySelectorAll('.ctip.mctip .mctip-r')].map(r => r.textContent)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toContain('Balance')
+    expect(rows[0]).toContain('300')
+  })
+
+  it('an empty series list falls back to the shared "no data" placeholder', () => {
+    renderMulti([])
+    expect(container.querySelector('.empty')).toBeTruthy()
   })
 })
 

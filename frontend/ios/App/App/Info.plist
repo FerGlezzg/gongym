@@ -47,5 +47,7 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Used to scan your gym membership QR code so you can check in from the app.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Used to show today's step count on the Home screen.</string>
 </dict>
 </plist>

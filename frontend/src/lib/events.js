@@ -1,8 +1,13 @@
 // Custom calendar events — a race, a match, a surf session. Pure helpers, unit-tested in
 // events.test.js. An event is { id, d:'YYYY-MM-DD', name, emoji, start?:'HH:MM', end?:'HH:MM',
-// met?, kcalPerHour? }. With a start+end it also counts as activity: it shades the heatmap and,
-// when it carries a MET (built-in type) or a kcal/hour (a type the user made), feeds the
-// estimated daily expenditure.
+// met?, kcalPerHour?, distanceKm?, typeKey? }. With a start+end it also counts as activity: it
+// shades the heatmap and, when it carries a MET (built-in type) or a kcal/hour (a type the
+// user made), feeds the estimated daily expenditure. `distanceKm` is optional context — on a
+// pace-sensitive type (see effectiveMet below) it also sharpens that estimate; on anything
+// else it is just a number kept for the record. `typeKey` remembers which activity type was
+// picked (a DEFAULT_EVENT_TYPES key, or a custom type's id) so an edit reopens on the same
+// chip and effectiveMet knows whether pace applies — events saved before this field existed
+// simply have neither, and fall back to their flat `met` exactly as before.
 
 // Built-in activity types. MET values from the Compendium of Physical Activities (general
 // recreational intensity); kcal ≈ MET × bodyweight(kg) × hours.
@@ -73,19 +78,65 @@ export function eventMinutes(ev) {
   return mins
 }
 
+// Activities where pace changes the metabolic cost enough to be worth telling apart — a 5k
+// run in 20 minutes is not the same effort as the same 5k in 40. Only running for now: it's
+// the clean case (ACSM publishes a running equation) and the one asked for; cycling and
+// swimming shape their pace-to-effort curve differently and guessing at those would trade an
+// honest flat MET for a confidently wrong one. Easy to widen later — add the key here once
+// there's a formula (or a distance-banded MET table) that actually fits the activity.
+export const PACE_TYPE_KEYS = new Set(['run'])
+
 /**
- * Estimated kcal burned by a timed event. Uses the event's MET × bodyweight, or its flat
- * kcal/hour when it has one (types the user created). 0 without a duration or an intensity.
+ * The MET to price an event at: pace-adjusted when it's a pace-sensitive type with a distance
+ * and a duration, else its own flat `met`. The pace figure is ACSM's running equation —
+ * VO2 (ml/kg/min) = 0.2 × speed(m/min) + 3.5, MET = VO2 / 3.5 — the standard estimate for
+ * running effort at a given speed on flat ground.
+ */
+export function effectiveMet(ev) {
+  const flat = Number(ev && ev.met) || null
+  if (!ev || !PACE_TYPE_KEYS.has(ev.typeKey)) return flat
+  const km = Number(ev.distanceKm)
+  const min = eventMinutes(ev)
+  if (!(km > 0) || !(min > 0)) return flat
+  const speedMPerMin = (km * 1000) / min
+  const vo2 = 0.2 * speedMPerMin + 3.5
+  return Math.round((vo2 / 3.5) * 10) / 10
+}
+
+/**
+ * Estimated kcal burned by a timed event. Uses the event's (pace-adjusted, where that
+ * applies) MET × bodyweight, or its flat kcal/hour when it has one (types the user created).
+ * 0 without a duration or an intensity.
  */
 export function eventKcal(ev, bodyweightKg) {
   const hours = eventMinutes(ev) / 60
   if (hours <= 0) return 0
-  const met = Number(ev && ev.met)
+  const met = effectiveMet(ev)
   const per = Number(ev && ev.kcalPerHour)
   const kg = Number(bodyweightKg)
   if (met > 0 && kg > 0) return Math.round(met * kg * hours)
   if (per > 0) return Math.round(per * hours)
   return 0
+}
+
+// Activities where "distance" means footsteps rather than wheels or water — the ones a
+// distance can plausibly be turned into a step count for.
+const STEP_TYPE_KEYS = new Set(['run', 'walk', 'hiking'])
+// ~1,312 steps per km (≈0.76 m per stride) — an average across walking/light-jog cadence.
+// Same "honest approximation" spirit as the kcal formulas above: one flat rate, not a
+// stride model tuned to height or pace.
+const STEPS_PER_KM = 1312
+
+/**
+ * Estimated steps for one event, from its distance. 0 off a non-foot activity or without a
+ * distance — there is no device pedometer to fall back on (see the Home step counter, which
+ * sums this across the day's events instead of asking you to type a number: openGym stays
+ * dependency-light, and the web build has no step-counting API at all to read from anyway).
+ */
+export function eventSteps(ev) {
+  const km = Number(ev && ev.distanceKm)
+  if (!(km > 0) || !STEP_TYPE_KEYS.has(ev && ev.typeKey)) return 0
+  return Math.round(km * STEPS_PER_KM)
 }
 
 /** "18:00 – 19:30" or "" when the event has no time. */

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW } from '../lib/history.js'
@@ -6,7 +6,8 @@ import { fmtNum, fmtDate, todayISO, DAYN, MONTHS_LONG } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
 import { bwSheet, goalSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, dayHubSheet, weekPresetsSheet, monthPickerSheet } from '../sheets.jsx'
 import { dietOf } from '../lib/nutrition.js'
-import { eventIconOf } from '../lib/events.js'
+import { eventIconOf, eventSteps } from '../lib/events.js'
+import { MOBILE, nativeSteps } from '../lib/mobile.js'
 import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
 import CalorieCard from '../components/CalorieCard.jsx'
@@ -48,6 +49,19 @@ export default function Home() {
   const prevBW = S.bodyweight.length > 1 ? S.bodyweight[S.bodyweight.length - 2] : null
   const delta = bw && prevBW ? bw.w - prevBW.w : null
   const doneToday = S.workouts.filter(w => w.d === todayISO()).at(-1) || null
+  // The installed mobile app reads the phone's own motion hardware (lib/mobile.js
+  // nativeSteps — Android's step-counter sensor, iOS's CMPedometer); the web build has no
+  // such API to read from at all. Either way, until/unless that answers, today's
+  // distance-tagged events (lib/events.js eventSteps) stand in so the line is never just 0.
+  const [deviceSteps, setDeviceSteps] = useState(null)
+  useEffect(() => {
+    if (!MOBILE) return
+    let alive = true
+    nativeSteps().then(n => { if (alive) setDeviceSteps(n) })
+    return () => { alive = false }
+  }, [])
+  const derivedSteps = (S.events || []).filter(e => e.d === todayISO()).reduce((n, e) => n + eventSteps(e), 0)
+  const todaySteps = deviceSteps != null ? deviceSteps : derivedSteps
 
   const bwPoints = S.bodyweight.slice(-30).map(b => ({ t: b.t || new Date(b.d).getTime(), y: b.w, d: b.d }))
   const activePreset = (S.weekPresets || []).find(p => p.id === S.activeWeekId)
@@ -66,6 +80,10 @@ export default function Home() {
         <div className="sub" style={{ marginTop: 3, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }} {...tappable(() => calendarSheet())}>
           <Icon name="flame" style={{ color: 'var(--orange)', fontSize: 14 }} />
           {t('{0} week streak', streakWeeks(S))}
+        </div>
+        <div className="sub" style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
+          <Icon name="footprints" style={{ fontSize: 14 }} />
+          {t('{0} steps today', fmtNum(todaySteps))}
         </div>
       </div>
       <div className="row" style={{ gap: 8, flex: 'none' }}>

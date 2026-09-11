@@ -32,6 +32,26 @@ export async function isAndroid() {
   }
 }
 
+// Today's step count from the device's own motion hardware — Android's TYPE_STEP_COUNTER
+// sensor, iOS's CMPedometer — via two hand-written local plugins (android/.../StepsPlugin.java,
+// ios/.../StepsPlugin.swift; not npm packages, same "Install" idiom lib/update.js already uses
+// for a local plugin). null on the web build, an older/sensor-less device, or a denied
+// permission — Home.jsx falls back to the events-derived estimate (lib/events.js eventSteps)
+// in every one of those cases, so this never has to be the only source.
+export async function nativeSteps() {
+  if (!MOBILE) return null
+  try {
+    const { registerPlugin } = await import('@capacitor/core')
+    const Steps = registerPlugin('Steps')
+    const { available } = await Steps.isAvailable()
+    if (!available) return null
+    const { steps } = await Steps.getTodaySteps()
+    return steps
+  } catch (e) {
+    return null
+  }
+}
+
 const FILE = 'opengym-state.json'
 
 export async function nativeLoad() {

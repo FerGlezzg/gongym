@@ -1,7 +1,7 @@
 import { useStore } from '../store/useStore.js'
 import { fmtNum, todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { dietOf, dayTotals, estimatedExpenditure } from '../lib/nutrition.js'
+import { dayTotals, estimatedExpenditure, goalFor, weekOfMonth } from '../lib/nutrition.js'
 import { dietGoalSheet } from '../sheets.jsx'
 import { Button } from './ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
@@ -10,32 +10,37 @@ import { tappable } from '../lib/use-sheet-keyboard.js'
 // shown on both the Diet screen and the Home glance (where `onClick` taps through to /diet).
 export default function CalorieCard({ onClick }) {
   const S = useStore(s => s.S)
-  const d = dietOf(S)
   const iso = todayISO()
+  const goal = goalFor(S, iso)
+  const kcalGoal = goal.kcalGoal
+  const macros = goal.macroGoal
+  // When a saved diet plan covers this week, name it — otherwise the goal chip's number
+  // silently changing week to week (whichever plan happens to be assigned) would look like
+  // a bug rather than the point of the feature.
+  const activePlan = (S.dietPlans || []).find(p => p.id === (S.dietWeekPlan || {})[weekOfMonth(iso)])
   const tot = dayTotals(S.nutrition, iso)
   const exp = estimatedExpenditure(S, iso)
   const balance = exp.total == null ? null : Math.round(tot.kcal - exp.total)
-  const macros = d.macroGoal
   const wrap = onClick ? { className: 'card tappable', style: { cursor: 'pointer' }, ...tappable(onClick) } : { className: 'card' }
 
   return <div {...wrap}>
     <div className="row between" style={{ marginBottom: 6, alignItems: 'baseline' }}>
-      <h2 style={{ margin: 0 }}>{t('Calories')}</h2>
-      <Button size="sm" icon="target" style={d.kcalGoal ? { color: 'var(--yellow)' } : undefined}
+      <h2 style={{ margin: 0 }}>{t('Calories')}{activePlan && <span className="dim" style={{ fontSize: 13, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> · {activePlan.name}</span>}</h2>
+      <Button size="sm" icon="target" style={kcalGoal ? { color: 'var(--yellow)' } : undefined}
         onClick={e => { e.stopPropagation(); dietGoalSheet() }}>
-        {d.kcalGoal ? fmtNum(d.kcalGoal) : t('Goal')}
+        {kcalGoal ? fmtNum(kcalGoal) : t('Goal')}
       </Button>
     </div>
     <div className="row" style={{ gap: 8, alignItems: 'baseline' }}>
-      <div className="big">{fmtNum(Math.round(tot.kcal))}{d.kcalGoal ? <span className="muted" style={{ fontSize: '1rem' }}> / {fmtNum(d.kcalGoal)}</span> : null}
+      <div className="big">{fmtNum(Math.round(tot.kcal))}{kcalGoal ? <span className="muted" style={{ fontSize: '1rem' }}> / {fmtNum(kcalGoal)}</span> : null}
         <span className="muted" style={{ fontSize: '1rem' }}> {t('kcal')}</span></div>
-      {d.kcalGoal ? <span className="dim small" style={{ marginLeft: 'auto' }}>
-        {tot.kcal > d.kcalGoal ? t('{0} over', fmtNum(Math.round(tot.kcal - d.kcalGoal))) : t('{0} left', fmtNum(Math.round(d.kcalGoal - tot.kcal)))}
+      {kcalGoal ? <span className="dim small" style={{ marginLeft: 'auto' }}>
+        {tot.kcal > kcalGoal ? t('{0} over', fmtNum(Math.round(tot.kcal - kcalGoal))) : t('{0} left', fmtNum(Math.round(kcalGoal - tot.kcal)))}
       </span> : null}
     </div>
-    {d.kcalGoal ? <div style={{ marginTop: 8 }}>
+    {kcalGoal ? <div style={{ marginTop: 8 }}>
       <span style={{ display: 'block', width: '100%', height: 6, borderRadius: 3, background: 'var(--surface-2)', overflow: 'hidden' }}>
-        <span style={{ display: 'block', height: '100%', borderRadius: 3, width: Math.min(100, Math.round(tot.kcal / d.kcalGoal * 100)) + '%', background: tot.kcal > d.kcalGoal ? 'var(--red)' : 'var(--acc)' }} />
+        <span style={{ display: 'block', height: '100%', borderRadius: 3, width: Math.min(100, Math.round(tot.kcal / kcalGoal * 100)) + '%', background: tot.kcal > kcalGoal ? 'var(--red)' : 'var(--acc)' }} />
       </span>
     </div> : null}
 
