@@ -38,7 +38,7 @@ import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
 import { dietOf, scaleFood, entryAmountLabel, bodyweightKgAt, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
-import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, eventIconOf, EVENT_ICONS, DEFAULT_EVENT_ICON, RECUR, timeLike, NOTIFY_BEFORE } from './lib/events.js'
+import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, eventIconOf, EVENT_ICONS, DEFAULT_EVENT_ICON, PACE_TYPE_KEYS, RECUR, timeLike, NOTIFY_BEFORE } from './lib/events.js'
 import { loadFoods, foodsReady, foodName, searchFoods, CATEGORY_LABEL, FOOD_CATEGORIES } from './lib/foods.js'
 import { lookupBarcode } from './lib/off.js'
 import { scanBarcode, importCodeFromImage } from './lib/scan.js'
@@ -1646,12 +1646,17 @@ export const dayHubSheet = iso => ui().openSheet(close => <DayHub iso={iso} clos
 // an intensity (MET for built-ins, kcal/hour for ones the user made); with a start+end the
 // event shades the heatmap and feeds the day's estimated expenditure. Stored in S.events;
 // `emoji` is the field name but it holds an icon key (see lib/events.js).
+const nowHHMM = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') }
 
 function EventSheet({ iso, event, close }) {
   const st = useStore(s => s.S)
   const types = eventTypes(st)
+  // typeKey is the reliable match (an event saved since it existed carries it straight
+  // through); the icon/intensity heuristic is only a fallback for events saved before it did.
   const seedType = event
-    ? types.find(x => eventIconOf(x.emoji) === eventIconOf(event.emoji) && (x.met === event.met || x.kcalPerHour === event.kcalPerHour)) || null
+    ? types.find(x => x.key === event.typeKey)
+      || types.find(x => eventIconOf(x.emoji) === eventIconOf(event.emoji) && (x.met === event.met || x.kcalPerHour === event.kcalPerHour))
+      || null
     : null
 
   const [mode, setMode] = useState(null)                       // null | 'newType'
@@ -1666,6 +1671,9 @@ function EventSheet({ iso, event, close }) {
   const [kph, setKph] = useState(event?.kcalPerHour ?? null)
   const [start, setStart] = useState(event?.start || '')
   const [end, setEnd] = useState(event?.end || '')
+  // Optional — only running currently uses it to sharpen the calorie estimate (effectiveMet
+  // in lib/events.js); every other type just keeps it as a number worth having on record.
+  const [distanceKm, setDistanceKm] = useState(event?.distanceKm ?? null)
   // When editing, seed Repeat from the series (its occurrences' spacing). Changing it later
   // rewrites this occurrence forward; leaving it untouched edits only this one.
   const seededRepeat = event ? seriesFrequency(st.events, event) : 'none'
@@ -1682,7 +1690,10 @@ function EventSheet({ iso, event, close }) {
     setMet(ty.met ?? null); setKph(ty.kcalPerHour ?? null)
     if (!name.trim() && ty.key !== 'other') setName(ty.custom ? ty.name : t(ty.name))
   }
-  const kcal = eventKcal({ met, kcalPerHour: kph, start, end }, bwKg)
+  const kcal = eventKcal({ typeKey, met, kcalPerHour: kph, start, end, distanceKm }, bwKg)
+  const isPaceType = PACE_TYPE_KEYS.has(typeKey)
+  const paceMinutes = eventMinutes({ start, end })
+  const paceMinPerKm = isPaceType && distanceKm > 0 && paceMinutes > 0 ? paceMinutes / distanceKm : null
 
   const before = start && timeLike(start) ? notifyBefore : null   // "before" needs a start time
   const notify = (before != null || notifyAllDay) ? { before, allDay: notifyAllDay } : undefined
@@ -1698,11 +1709,15 @@ function EventSheet({ iso, event, close }) {
   const save = () => {
     const nm = name.trim()
     if (!nm) { toast(t('Give it a name')); return }
-    if ((start && !timeLike(start)) || (end && !timeLike(end)) || (!!start !== !!end)) { toast(t('Enter both a start and an end time')); return }
+    // Deliberately not "both or neither": Start now / End now (below) means the honest way to
+    // log this is to stamp Start on the way out and come back to stamp End later — a start
+    // with no end yet is a real, savable state, not a mistake.
+    if ((start && !timeLike(start)) || (end && !timeLike(end))) { toast(t('Enter a valid time')); return }
     const row = {
-      name: nm, emoji: icon,
+      name: nm, emoji: icon, typeKey,
       start: start || null, end: end || null,
       met: met > 0 ? met : null, kcalPerHour: kph > 0 ? kph : null,
+      distanceKm: distanceKm > 0 ? distanceKm : null,
       notify: notify || null,
     }
     if (event) {
@@ -1771,11 +1786,26 @@ function EventSheet({ iso, event, close }) {
     </div>
 
     <h4 className="sec" style={{ marginTop: 14 }}>{t('Time')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('optional')}</span></h4>
-    <div className="row" style={{ gap: 8 }}>
+    <div className="row" style={{ gap: 6 }}>
       <input type="time" className="timef" style={{ flex: 1 }} value={start} onChange={e => setStart(e.target.value)} />
+      {/* Only for today: stamping "now" onto a different day's event would just be wrong.
+          The point is precision — tap this on the way out, tap End's on the way back in,
+          rather than typing a remembered (and likely rounded) time afterwards. */}
+      {date === todayISO() && <button className="chip nocap" onClick={() => setStart(nowHHMM())}>{t('Now')}</button>}
       <span className="dim">–</span>
       <input type="time" className="timef" style={{ flex: 1 }} value={end} onChange={e => setEnd(e.target.value)} />
+      {date === todayISO() && <button className="chip nocap" onClick={() => setEnd(nowHHMM())}>{t('Now')}</button>}
     </div>
+
+    <h4 className="sec" style={{ marginTop: 14 }}>{t('Distance')} <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}>· {t('optional')}</span></h4>
+    <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+      <NumberField className="input" style={{ flex: 1 }} value={distanceKm} nullable placeholder="–" onChange={setDistanceKm} />
+      <span className="dim">km</span>
+    </div>
+    {paceMinPerKm != null && <div className="small dim" style={{ marginTop: 6 }}>
+      {t('Pace {0} min/km — sharpens the calorie estimate for this activity.', fmtNum(paceMinPerKm))}
+    </div>}
+
     {kcal > 0 && <div className="small dim" style={{ marginTop: 8 }}>
       {eventMinutes({ start, end })} min · ≈ {fmtNum(kcal)} {t('kcal')} — {t('added to the day’s expenditure')}
     </div>}

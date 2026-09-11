@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_EVENT_TYPES, eventTypes, eventIconOf, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, RECUR, eventNotifTimes } from './events.js'
+import { DEFAULT_EVENT_TYPES, eventTypes, eventIconOf, eventMinutes, eventKcal, effectiveMet, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, RECUR, eventNotifTimes } from './events.js'
 
 describe('DEFAULT_EVENT_TYPES', () => {
   it('includes surf and a zero-MET fallback, and carries icon keys not emoji', () => {
@@ -63,6 +63,27 @@ describe('eventKcal', () => {
     expect(eventKcal({ met: 5 }, 80)).toBe(0)
     expect(eventKcal({ start: '10:00', end: '11:00' }, 80)).toBe(0)
     expect(eventKcal({ start: '10:00', end: '11:00', met: 5 }, 0)).toBe(0)
+  })
+  it('prices a run against its pace-adjusted MET once it has a distance', () => {
+    // 5 km in 25 min → 200 m/min → VO2 43.5 → MET 12.4 ; 12.4 · 70 kg · (25/60) h ≈ 362
+    const run = { typeKey: 'run', start: '10:00', end: '10:25', met: 9.8, distanceKm: 5 }
+    expect(eventKcal(run, 70)).toBe(362)
+    expect(eventKcal(run, 70)).not.toBe(Math.round(9.8 * 70 * (25 / 60)))
+  })
+})
+
+describe('effectiveMet', () => {
+  it('is pace-adjusted for a running event with a distance and a duration', () => {
+    expect(effectiveMet({ typeKey: 'run', start: '10:00', end: '10:25', met: 9.8, distanceKm: 5 })).toBe(12.4)
+  })
+  it('falls back to the flat met without a distance, without a duration, or off a pace-sensitive type', () => {
+    expect(effectiveMet({ typeKey: 'run', start: '10:00', end: '10:25', met: 9.8 })).toBe(9.8)
+    expect(effectiveMet({ typeKey: 'run', met: 9.8, distanceKm: 5 })).toBe(9.8)
+    expect(effectiveMet({ typeKey: 'cycling', start: '10:00', end: '10:25', met: 8, distanceKm: 5 })).toBe(8)
+  })
+  it('is null without a flat met to fall back to', () => {
+    expect(effectiveMet({ typeKey: 'run' })).toBe(null)
+    expect(effectiveMet(null)).toBe(null)
   })
 })
 
