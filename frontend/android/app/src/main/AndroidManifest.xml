@@ -43,4 +43,10 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Gym check-in: scanning a membership QR/barcode with the camera. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Home step counter: reads the device's hardware step-counter sensor (StepsPlugin).
+         Required from Android 10 (API 29) on; earlier versions need no runtime permission. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- Not every device has the sensor (StepsPlugin.isAvailable() checks at runtime) — this
+         only stops app stores from hiding the listing on devices that lack it. -->
+    <uses-feature android:name="android.hardware.sensor.stepcounter" android:required="false" />
 </manifest>

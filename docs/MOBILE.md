@@ -145,3 +145,25 @@ that would simply install. Your free options:
 - The app requests notification permission only when the workout-day reminder is switched
   on, and (on Android) declares `SCHEDULE_EXACT_ALARM` so the reminder fires to the minute
   where the user allows it.
+- **Home step counter**: reads the phone's own motion hardware — Android's
+  `Sensor.TYPE_STEP_COUNTER`, iOS's `CMPedometer` — through two small hand-written local
+  plugins (not npm packages, same idiom `lib/update.js` already uses for the Android
+  `Install` plugin): `android/.../StepsPlugin.java`, `ios/App/App/StepsPlugin.swift`. Nothing
+  leaves the phone; the web build has no equivalent API and falls back to estimating steps
+  from logged running/walking events instead (`lib/events.js` `eventSteps`).
+  - Android requests `ACTIVITY_RECOGNITION` (Android 10+ only) the first time the Home
+    screen asks for today's count; iOS requests "Motion & Fitness" the same way
+    (`NSMotionUsageDescription` in `Info.plist`). Denying either just keeps the
+    events-derived estimate.
+  - Android's sensor only reports a running total since the phone's last reboot, with no
+    history API — `StepsPlugin.java` tracks a per-day baseline in `SharedPreferences` and
+    reports the delta, so the count is most accurate when the app has been opened at least
+    once earlier in the day (steps taken before that first read aren't retroactively
+    counted). iOS's `CMPedometer` has no such caveat — it can be asked directly for "since
+    midnight" and answers from data Core Motion already tracked in the background.
+  - iOS's `Main.storyboard` points its root view controller at a custom `ViewController`
+    (subclassing `CAPBridgeViewController`) instead of Capacitor's stock one, because a
+    local plugin isn't in `capacitor.config.json`'s auto-registration list the way an
+    installed npm plugin would be — `ViewController.capacitorDidLoad()` is where it's
+    registered by hand (`bridge?.registerPluginInstance(StepsPlugin())`). Android does the
+    equivalent in `MainActivity.onCreate()` (`registerPlugin(StepsPlugin.class)`).
