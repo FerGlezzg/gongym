@@ -119,6 +119,26 @@ export function eventKcal(ev, bodyweightKg) {
   return 0
 }
 
+// Activities where "distance" means footsteps rather than wheels or water — the ones a
+// distance can plausibly be turned into a step count for.
+const STEP_TYPE_KEYS = new Set(['run', 'walk', 'hiking'])
+// ~1,312 steps per km (≈0.76 m per stride) — an average across walking/light-jog cadence.
+// Same "honest approximation" spirit as the kcal formulas above: one flat rate, not a
+// stride model tuned to height or pace.
+const STEPS_PER_KM = 1312
+
+/**
+ * Estimated steps for one event, from its distance. 0 off a non-foot activity or without a
+ * distance — there is no device pedometer to fall back on (see the Home step counter, which
+ * sums this across the day's events instead of asking you to type a number: openGym stays
+ * dependency-light, and the web build has no step-counting API at all to read from anyway).
+ */
+export function eventSteps(ev) {
+  const km = Number(ev && ev.distanceKm)
+  if (!(km > 0) || !STEP_TYPE_KEYS.has(ev && ev.typeKey)) return 0
+  return Math.round(km * STEPS_PER_KM)
+}
+
 /** "18:00 – 19:30" or "" when the event has no time. */
 export function eventTimeLabel(ev) {
   return ev && ev.start && ev.end ? `${ev.start} – ${ev.end}` : ''

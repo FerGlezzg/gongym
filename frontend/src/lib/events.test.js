@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_EVENT_TYPES, eventTypes, eventIconOf, eventMinutes, eventKcal, effectiveMet, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, RECUR, eventNotifTimes } from './events.js'
+import { DEFAULT_EVENT_TYPES, eventTypes, eventIconOf, eventMinutes, eventKcal, effectiveMet, eventSteps, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, RECUR, eventNotifTimes } from './events.js'
 
 describe('DEFAULT_EVENT_TYPES', () => {
   it('includes surf and a zero-MET fallback, and carries icon keys not emoji', () => {
@@ -84,6 +84,20 @@ describe('effectiveMet', () => {
   it('is null without a flat met to fall back to', () => {
     expect(effectiveMet({ typeKey: 'run' })).toBe(null)
     expect(effectiveMet(null)).toBe(null)
+  })
+})
+
+describe('eventSteps', () => {
+  it('is distance · 1312 for a foot activity', () => {
+    expect(eventSteps({ typeKey: 'run', distanceKm: 5 })).toBe(6560)
+    expect(eventSteps({ typeKey: 'walk', distanceKm: 2 })).toBe(2624)
+    expect(eventSteps({ typeKey: 'hiking', distanceKm: 10 })).toBe(13120)
+  })
+  it('is 0 without a distance, or off a non-foot activity', () => {
+    expect(eventSteps({ typeKey: 'run' })).toBe(0)
+    expect(eventSteps({ typeKey: 'cycling', distanceKm: 20 })).toBe(0)
+    expect(eventSteps({ typeKey: 'surf', distanceKm: 1 })).toBe(0)
+    expect(eventSteps(null)).toBe(0)
   })
 })
 

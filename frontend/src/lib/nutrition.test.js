@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  dietOf, dayTotals, ageFrom, bmrMifflin, tdee, workoutKcal, stepsKcal, bodyweightKgAt,
+  dietOf, weekOfMonth, goalFor, dayTotals, ageFrom, bmrMifflin, tdee, workoutKcal, bodyweightKgAt,
   estimatedExpenditure, daySeries, weekAverages, scaleFood, entryAmountLabel, DIET_DEFAULT,
 } from './nutrition.js'
 
@@ -11,6 +11,38 @@ describe('dietOf', () => {
     expect(dietOf({})).toEqual(DIET_DEFAULT)
     expect(dietOf({ diet: { kcalGoal: 2000 } }).kcalGoal).toBe(2000)
     expect(dietOf({ diet: { kcalGoal: 2000 } }).activity).toBe(DIET_DEFAULT.activity)
+  })
+})
+
+describe('weekOfMonth', () => {
+  it('is ceil(day/7), 1-5', () => {
+    expect(weekOfMonth('2026-01-01')).toBe(1)
+    expect(weekOfMonth('2026-01-07')).toBe(1)
+    expect(weekOfMonth('2026-01-08')).toBe(2)
+    expect(weekOfMonth('2026-01-21')).toBe(3)
+    expect(weekOfMonth('2026-01-29')).toBe(5)
+    expect(weekOfMonth('2026-01-31')).toBe(5)
+  })
+})
+
+describe('goalFor', () => {
+  const plans = [
+    { id: 'bulk', name: 'Bulk', kcalGoal: 3000, macroGoal: { p: 180, c: 350, f: 90 } },
+    { id: 'cut', name: 'Cut', kcalGoal: 2000, macroGoal: null },
+  ]
+  it('uses the plan assigned to that date\'s week-of-month', () => {
+    const S = { diet: { kcalGoal: 2500 }, dietPlans: plans, dietWeekPlan: { 1: 'bulk', 3: 'cut' } }
+    expect(goalFor(S, '2026-01-03').kcalGoal).toBe(3000)   // week 1 → bulk
+    expect(goalFor(S, '2026-01-03').macroGoal).toEqual({ p: 180, c: 350, f: 90 })
+    expect(goalFor(S, '2026-01-17').kcalGoal).toBe(2000)   // week 3 → cut
+  })
+  it('falls back to the profile default for an unassigned week or a missing plan', () => {
+    const S = { diet: { kcalGoal: 2500 }, dietPlans: plans, dietWeekPlan: { 1: 'bulk' } }
+    expect(goalFor(S, '2026-01-10').kcalGoal).toBe(2500)          // week 2, nothing assigned
+    expect(goalFor({ diet: { kcalGoal: 2500 }, dietWeekPlan: { 1: 'gone' } }, '2026-01-01').kcalGoal).toBe(2500)
+  })
+  it('is the plain profile default without any plans at all', () => {
+    expect(goalFor({ diet: { kcalGoal: 1800 } }, '2026-01-01')).toEqual({ kcalGoal: 1800, macroGoal: null })
   })
 })
 
@@ -84,18 +116,6 @@ describe('workoutKcal', () => {
   })
 })
 
-describe('stepsKcal', () => {
-  it('is steps · 0.0005 · kg', () => {
-    // 10000 · 0.0005 · 70 = 350
-    expect(stepsKcal(10000, 70)).toBe(350)
-  })
-  it('is 0 without a step count or a bodyweight', () => {
-    expect(stepsKcal(0, 70)).toBe(0)
-    expect(stepsKcal(10000, 0)).toBe(0)
-    expect(stepsKcal(null, 70)).toBe(0)
-  })
-})
-
 describe('bodyweightKgAt', () => {
   const S = {
     unit: 'kg',
@@ -151,12 +171,6 @@ describe('estimatedExpenditure', () => {
     expect(estimatedExpenditure(withEvent, '2026-01-20', { now }).total).toBe(2448 + 800)
     expect(estimatedExpenditure({ ...withEvent, diet: { ...base.diet, workoutKcal: false } }, '2026-01-20', { now }).total).toBe(2448)
   })
-  it('folds a day\'s step count into the day (under the same toggle)', () => {
-    const withSteps = { ...base, steps: [{ d: '2026-01-20', n: 10000 }] }
-    // 10000 · 0.0005 · 80 kg = 400, on top of the TDEE 2448
-    expect(estimatedExpenditure(withSteps, '2026-01-20', { now }).total).toBe(2448 + 400)
-    expect(estimatedExpenditure({ ...withSteps, diet: { ...base.diet, workoutKcal: false } }, '2026-01-20', { now }).total).toBe(2448)
-  })
 })
 
 describe('daySeries', () => {
@@ -184,13 +198,17 @@ describe('daySeries', () => {
     const rows = daySeries(S, { from: '2026-01-11', to: '2026-01-13', now })
     expect(rows.map(r => r.d)).toEqual(['2026-01-12'])
   })
-  it('also rows a day whose only entry is a timed event or a step count', () => {
-    const withBoth = { ...S,
-      events: [{ d: '2026-01-05', start: '10:00', end: '11:00', met: 5 }],
-      steps: [{ d: '2026-01-18', n: 8000 }],
-    }
-    const rows = daySeries(withBoth, { now })
-    expect(rows.map(r => r.d)).toEqual(['2026-01-05', '2026-01-10', '2026-01-12', '2026-01-15', '2026-01-18'])
+  it('prices each row against its own week\'s assigned plan, not just the profile default', () => {
+    // 2026-01-10 is week 2, 2026-01-12 is week 2 too, 2026-01-15 is week 3
+    const withPlan = { ...S, dietPlans: [{ id: 'cut', name: 'Cut', kcalGoal: 1600 }], dietWeekPlan: { 3: 'cut' } }
+    const rows = daySeries(withPlan, { now })
+    expect(rows.find(r => r.d === '2026-01-10').goal).toBe(2000)   // week 2, unassigned → default
+    expect(rows.find(r => r.d === '2026-01-15').goal).toBe(1600)   // week 3 → the Cut plan
+  })
+  it('also rows a day whose only entry is a timed event', () => {
+    const withEvent = { ...S, events: [{ d: '2026-01-05', start: '10:00', end: '11:00', met: 5 }] }
+    const rows = daySeries(withEvent, { now })
+    expect(rows.map(r => r.d)).toEqual(['2026-01-05', '2026-01-10', '2026-01-12', '2026-01-15'])
     expect(rows[0].intake).toBe(0)
     expect(rows[0].expenditure).toBeGreaterThan(0)
   })

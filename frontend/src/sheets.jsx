@@ -37,7 +37,7 @@ import { isFav, toggleFav, sortFavouritesFirst } from './lib/favourites.js'
 import { buildSessionEntries } from './lib/session-start.js'
 import { buildCombinedEntries, deriveSessionName } from './lib/session-merge.js'
 import { workoutsOn, backfillStart, backfillEnd, completeBackfill } from './lib/backfill.js'
-import { dietOf, scaleFood, entryAmountLabel, bodyweightKgAt, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
+import { dietOf, scaleFood, entryAmountLabel, bodyweightKgAt, weekOfMonth, ACTIVITY_LEVELS, DIET_DEFAULT } from './lib/nutrition.js'
 import { eventTypes, eventMinutes, eventKcal, eventTimeLabel, expandRecurrence, seriesFrequency, planEventEdit, eventRepeats, eventIconOf, EVENT_ICONS, DEFAULT_EVENT_ICON, PACE_TYPE_KEYS, RECUR, timeLike, NOTIFY_BEFORE } from './lib/events.js'
 import { loadFoods, foodsReady, foodName, searchFoods, CATEGORY_LABEL, FOOD_CATEGORIES } from './lib/foods.js'
 import { lookupBarcode } from './lib/off.js'
@@ -241,52 +241,6 @@ function BwSheet({ required, onDone, close }) {
 export function bwSheet(opts = {}) {
   const h = ui().openSheet(close => <BwSheet {...opts} close={close} />, { locked: !!opts.required })
   return h
-}
-
-/* ============================ steps ============================ */
-// One count per day, upserted like body weight — no device pedometer integration, you type
-// what your phone told you. Feeds the day's calorie estimate the same way a workout or a
-// timed event does (lib/nutrition.js stepsKcal, folded into estimatedExpenditure).
-function StepsSheet({ close }) {
-  const st = useStore(s => s.S)
-  const today = todayISO()
-  const existing = (st.steps || []).find(x => x.d === today)
-  const [n, setN] = useState(existing ? existing.n : 0)
-  const save = () => {
-    const v = Math.max(0, Math.round(n || 0))
-    if (!v) { toast(t('Enter a valid number')); return }
-    update(s => {
-      s.steps = s.steps || []
-      const ex = s.steps.find(x => x.d === today)
-      if (ex) ex.n = v; else s.steps.push({ d: today, n: v })
-      s.steps.sort((a, b) => (a.d < b.d ? -1 : 1))
-    })
-    close()
-    toast(t('Steps saved'))
-  }
-  const recent = [...(st.steps || [])].reverse().slice(0, 3)
-  const delEntry = d => update(s => { s.steps = s.steps.filter(x => x.d !== d) })
-  return <>
-    <h3>{t('Steps')}</h3>
-    <div className="muted small">{t('Today') + ', ' + fmtDate(today, true)}</div>
-    <div style={{ height: 10 }} />
-    <Stepper value={n} step={500} decimal={false} onChange={v => setN(Math.max(0, Math.round(v)))} />
-    <div style={{ height: 14 }} />
-    <Button variant="primary" onClick={save}>{t('Save')}</Button>
-    {recent.length > 0 && <>
-      <h4 className="sec">{t('Recent step counts')}</h4>
-      <div className="list" style={{ gap: 0 }}>
-        {recent.map(x => <div key={x.d} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
-          <span className="small muted">{fmtDate(x.d, true)}</span>
-          <span className="row" style={{ gap: 12 }}><b>{fmtNum(x.n)}</b>
-            <button className="iconbtn" style={{ width: 32, height: 30, borderRadius: 8, fontSize: 15, color: 'var(--red)' }} onClick={() => delEntry(x.d)} aria-label="delete"><Icon name="trash" /></button></span>
-        </div>)}
-      </div>
-    </>}
-  </>
-}
-export function stepsSheet() {
-  ui().openSheet(close => <StepsSheet close={close} />)
 }
 
 /* ============================ import from another app ============================ */
@@ -2668,6 +2622,108 @@ function DietGoalSheet({ close }) {
   </>
 }
 export const dietGoalSheet = () => ui().openSheet(close => <DietGoalSheet close={close} />)
+
+/* ============================ diet: weekly plans ============================ */
+// A saved kcal/macro target you can assign to a week of the month (1-5, see lib/nutrition.js
+// weekOfMonth) — a bulk block, a cut, a deload week — so the goal itself can cycle every
+// month without re-entering it each time that week comes back around. Unassigned weeks keep
+// using the plain default goal (dietGoalSheet); this is additive, not a replacement for it.
+function DietPlanForm({ plan, close }) {
+  const nameRef = useRef(null)
+  const [kcal, setKcal] = useState(plan?.kcalGoal ?? null)
+  const [hasMacros, setHasMacros] = useState(!!plan?.macroGoal)
+  const [p, setP] = useState(plan?.macroGoal?.p ?? null)
+  const [c, setC] = useState(plan?.macroGoal?.c ?? null)
+  const [f, setF] = useState(plan?.macroGoal?.f ?? null)
+
+  const save = () => {
+    const name = (nameRef.current?.value || '').trim()
+    if (!name) { toast(t('Give it a name')); return }
+    const row = {
+      name,
+      kcalGoal: kcal > 0 ? Math.round(kcal) : null,
+      macroGoal: hasMacros ? { p: Math.round(p || 0), c: Math.round(c || 0), f: Math.round(f || 0) } : null,
+    }
+    update(s => {
+      s.dietPlans = s.dietPlans || []
+      const ex = plan && s.dietPlans.find(x => x.id === plan.id)
+      if (ex) Object.assign(ex, row); else s.dietPlans.push({ id: uid(), ...row })
+    })
+    close()
+    toast(t('Saved'))
+  }
+
+  return <>
+    <h3>{plan ? t('Edit plan') : t('New plan')}</h3>
+    <TextField ref={nameRef} defaultValue={plan?.name || ''} placeholder={t('e.g. Bulk')} maxLength={30} />
+    <div style={{ height: 10 }} />
+    <div className="row cfgrow"><Stepper label={t('Daily calories')} value={kcal || 0} step={50} decimal={false} unit={t('kcal')} onChange={setKcal} /></div>
+
+    <div className="lrow" style={{ marginTop: 8 }}>
+      <span className="lrow-t">{t('Macro targets')}</span>
+      <Switch checked={hasMacros} onChange={setHasMacros} />
+    </div>
+    {hasMacros && <div className="row cfgrow" style={{ marginTop: 8, gap: 8 }}>
+      <Stepper label={t('Protein') + ' (g)'} value={p || 0} step={5} decimal={false} onChange={setP} />
+      <Stepper label={t('Carbs') + ' (g)'} value={c || 0} step={5} decimal={false} onChange={setC} />
+      <Stepper label={t('Fat') + ' (g)'} value={f || 0} step={5} decimal={false} onChange={setF} />
+    </div>}
+
+    <div style={{ height: 16 }} />
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+    <div style={{ height: 8 }} /><Button variant="ghost" className="dim" onClick={close}>{t('Cancel')}</Button>
+  </>
+}
+
+function DietPlansSheet({ close }) {
+  const st = useStore(s => s.S)
+  const plans = st.dietPlans || []
+  const assign = st.dietWeekPlan || {}
+  const todayWeek = weekOfMonth(todayISO())
+
+  const setWeek = (wk, planId) => update(s => {
+    const next = { ...(s.dietWeekPlan || {}) }
+    if (planId) next[wk] = planId; else delete next[wk]
+    s.dietWeekPlan = next
+  })
+  const openForm = plan => ui().openSheet(c => <DietPlanForm plan={plan} close={c} />)
+  const del = plan => confirmSheet({
+    title: t('Delete "{0}"?', plan.name), confirmText: t('Delete'), danger: true,
+    onConfirm: () => update(s => {
+      s.dietPlans = (s.dietPlans || []).filter(x => x.id !== plan.id)
+      s.dietWeekPlan = Object.fromEntries(Object.entries(s.dietWeekPlan || {}).filter(([, id]) => id !== plan.id))
+    }),
+  })
+  const options = [{ value: '', label: t('Default goal') }, ...plans.map(p => ({ value: p.id, label: p.name }))]
+
+  return <>
+    <h3>{t('Diet plans')}</h3>
+    <div className="muted small" style={{ marginBottom: 14 }}>
+      {t('Save a named calorie/macro target, then assign it to a week of the month — it repeats every month until you change it.')}
+    </div>
+
+    {[1, 2, 3, 4, 5].map(wk => (
+      <SelectRow key={wk} icon="calendar" title={t('Week {0}', wk)} value={assign[wk] || ''} onChange={v => setWeek(wk, v)} options={options} />
+    ))}
+
+    <h4 className="sec" style={{ marginTop: 16 }}>{t('Saved plans')}</h4>
+    {plans.length > 0 ? <div className="list" style={{ marginBottom: 10 }}>
+      {plans.map(p => {
+        const isToday = assign[todayWeek] === p.id
+        return <div key={p.id} className={'item' + (isToday ? ' on-ss' : '')} {...tappable(() => openForm(p))}>
+          <span className="lrow-i" style={isToday ? { background: 'var(--acc)', color: '#000' } : undefined}><Icon name="target" /></span>
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="tt">{p.name}{isToday && <span className="tag acc" style={{ marginLeft: 8 }}>{t('Active')}</span>}</div>
+            <div className="ss">{[p.kcalGoal ? fmtNum(p.kcalGoal) + ' ' + t('kcal') : null, p.macroGoal ? t('Macro targets') : null].filter(Boolean).join(' · ')}</div>
+          </div>
+          <button className="iconbtn sm" style={{ color: 'var(--red)' }} aria-label={t('Delete')} onClick={e => { e.stopPropagation(); del(p) }}><Icon name="trash" /></button>
+        </div>
+      })}
+    </div> : <div className="small dim" style={{ marginBottom: 10 }}>{t('No plans saved yet.')}</div>}
+    <Button icon="plus" onClick={() => openForm(null)}>{t('New plan')}</Button>
+  </>
+}
+export const dietPlansSheet = () => ui().openSheet(close => <DietPlansSheet close={close} />)
 
 /* ============================ diet: log food ============================ */
 // Three ways to log something eaten: search the built-in catalogue (USDA, per 100 g,

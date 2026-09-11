@@ -15,7 +15,7 @@ const KEY = 'gym_state_v1'
 export const DEF = {
   unit: 'kg', restSec: 90, restPauseSec: 15, sound: true, timerFlash: false, keepAwake: true, lang: 'en',
   theme: 'dark', accent: 'lime', body: 'male', targetW: null,
-  bodyweight: [], steps: [], routines: [], week: {}, dayPlan: {},
+  bodyweight: [], routines: [], week: {}, dayPlan: {},
   // Saved week schedules you can switch between (Plan → Week → Schedules). `week` above stays
   // the single live schedule every training-logic helper reads; each preset is a named
   // snapshot ({ id, name, week: {wd:[routineId]} }). `activeWeekId` is the preset `week`
@@ -98,7 +98,7 @@ function loadState() {
   return clone(DEF)
 }
 
-const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length || (st.steps || []).length)
+const hasData = st => !!((st.workouts || []).length || (st.routines || []).length || (st.bodyweight || []).length)
 
 // Keep the active saved schedule mirroring the live `week`, so editing days while a schedule
 // is selected updates that schedule and switching to another never drops the edits. A single

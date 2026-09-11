@@ -40,6 +40,31 @@ export function dietOf(S) {
   return { ...DIET_DEFAULT, ...((S && S.diet) || {}) }
 }
 
+// A saved diet plan is { id, name, kcalGoal, macroGoal } — the same two goal fields S.diet
+// itself carries, just named and kept alongside others. S.dietWeekPlan maps a week-of-month
+// (1-5, see weekOfMonth) to one of these, so a cut/bulk/refeed rotation can repeat every
+// month without re-entering it. A week with nothing assigned falls back to dietOf(S)'s own
+// goal — the plan feature is additive, never required.
+
+/** Which "week" of the month `iso` falls in: 1-5, ceil(day-of-month / 7). */
+export function weekOfMonth(iso) {
+  const day = Number(String(iso).slice(8, 10)) || 1
+  return Math.min(5, Math.max(1, Math.ceil(day / 7)))
+}
+
+/**
+ * The kcal/macro goal that actually applies on `iso`: the diet plan assigned to its
+ * week-of-month, if any, else the profile's own default goal.
+ * @returns {{ kcalGoal: number|null, macroGoal: {p,c,f}|null }}
+ */
+export function goalFor(S, iso) {
+  const planId = (S?.dietWeekPlan || {})[weekOfMonth(iso)]
+  const plan = planId && (S?.dietPlans || []).find(p => p && p.id === planId)
+  if (plan) return { kcalGoal: plan.kcalGoal ?? null, macroGoal: plan.macroGoal ?? null }
+  const d = dietOf(S)
+  return { kcalGoal: d.kcalGoal, macroGoal: d.macroGoal }
+}
+
 /** Sum every logged item for one ISO day. */
 export function dayTotals(nutrition, iso) {
   const out = { kcal: 0, p: 0, c: 0, f: 0 }
@@ -90,18 +115,6 @@ export function workoutKcal(workout, bodyweightKg, { met = TRAINING_MET } = {}) 
   return Math.round(met * kg * (ms / 3600000))
 }
 
-// ~0.0005 kcal per step per kg of bodyweight — a commonly cited rough estimate (roughly
-// 300-400 kcal for 10,000 steps at ~70 kg). Not stride- or pace-aware, same spirit as the
-// MET-based estimates above: an honest approximation, not a medical-grade number.
-const STEP_KCAL_PER_KG = 0.0005
-
-/** Rough kcal burned by a day's step count. Returns 0 without a bodyweight or a count. */
-export function stepsKcal(steps, bodyweightKg) {
-  const n = num(steps), kg = num(bodyweightKg)
-  if (!(n > 0) || !(kg > 0)) return 0
-  return Math.round(n * STEP_KCAL_PER_KG * kg)
-}
-
 /** Latest bodyweight logged on or before `iso`, converted to kg. null when there is none. */
 export function bodyweightKgAt(S, iso) {
   const entries = (S?.bodyweight || [])
@@ -114,7 +127,9 @@ export function bodyweightKgAt(S, iso) {
 
 /**
  * Estimated total calories burned on `iso`: profile TDEE plus, when S.diet.workoutKcal is
- * on, an estimate for every session, timed event and step count logged that day.
+ * on, an estimate for every session and timed event logged that day. A distance-tagged event
+ * (a run, say) already prices its own kcal here — the Home step counter derived from that
+ * same distance (lib/events.js eventSteps) is a readout, not a second source to add in.
  * @returns {{ total:number|null, tdee:number|null, workout:number }}
  */
 export function estimatedExpenditure(S, iso, { now = Date.now() } = {}) {
@@ -137,8 +152,6 @@ export function estimatedExpenditure(S, iso, { now = Date.now() } = {}) {
     for (const ev of S?.events || []) {
       if (ev && ev.d === iso) workout += eventKcal(ev, kg)
     }
-    const steps = (S?.steps || []).find(s => s && s.d === iso)
-    if (steps) workout += stepsKcal(steps.n, kg)
   }
   const total = base == null ? (workout || null) : base + workout
   return { total, tdee: base, workout }
@@ -160,16 +173,14 @@ const isoDaysAgo = (iso, days) => {
  * @returns {Array<{ d, intake, expenditure, balance, goal, macros }>}
  */
 export function daySeries(S, { from, to = isoLocal(new Date()), now = Date.now() } = {}) {
-  const d = dietOf(S)
   const days = new Set()
   const inRange = day => day && (!from || day >= from) && day <= to
   for (const row of S?.nutrition || []) if (inRange(row?.d)) days.add(row.d)
   for (const w of S?.workouts || []) if (inRange(w?.d)) days.add(w.d)
-  // A day that only has a timed event or a step count still has an expenditure worth
-  // showing — without this it never entered the set and its burn/balance just never
-  // appeared in the history, no matter how sure the estimate was.
+  // A day that only has a timed event still has an expenditure worth showing — without this
+  // it never entered the set and its burn/balance just never appeared in the history, no
+  // matter how sure the estimate was.
   for (const e of S?.events || []) if (inRange(e?.d)) days.add(e.d)
-  for (const s of S?.steps || []) if (inRange(s?.d)) days.add(s.d)
   return [...days].sort().map(iso => {
     const tot = dayTotals(S.nutrition, iso)
     const exp = estimatedExpenditure(S, iso, { now }).total
@@ -178,7 +189,7 @@ export function daySeries(S, { from, to = isoLocal(new Date()), now = Date.now()
       intake: Math.round(tot.kcal),
       expenditure: exp,
       balance: exp == null ? null : Math.round(tot.kcal - exp),
-      goal: d.kcalGoal,
+      goal: goalFor(S, iso).kcalGoal,
       macros: { p: Math.round(tot.p), c: Math.round(tot.c), f: Math.round(tot.f) },
     }
   })
@@ -194,14 +205,13 @@ export function weekAverages(S, days = 7, { now = Date.now() } = {}) {
   const from = isoDaysAgo(to, days - 1)
   const rows = daySeries(S, { from, to, now }).filter(r => r.intake > 0)
   const mean = pick => (rows.length ? Math.round(rows.reduce((s, r) => s + (pick(r) || 0), 0) / rows.length) : null)
-  const d = dietOf(S)
-  // Consecutive most-recent days at or under the calorie goal.
+  // Consecutive most-recent days at or under whatever goal applied that day — its own week's
+  // plan if one was assigned (row.goal, from daySeries), the profile default otherwise.
   let streak = 0
-  if (d.kcalGoal) {
-    for (let i = rows.length - 1; i >= 0; i--) {
-      if (rows[i].intake <= d.kcalGoal) streak++
-      else break
-    }
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (!rows[i].goal) break
+    if (rows[i].intake <= rows[i].goal) streak++
+    else break
   }
   return {
     intake: mean(r => r.intake),

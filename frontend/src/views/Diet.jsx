@@ -2,8 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { fmtNum, fmtDate, todayISO } from '../lib/format.js'
 import { t } from '../lib/i18n.js'
-import { dietOf, daySeries, entryAmountLabel, MEAL_SLOTS } from '../lib/nutrition.js'
-import { dietGoalSheet, addFoodSheet, nutritionEntrySheet } from '../sheets.jsx'
+import { daySeries, entryAmountLabel, goalFor, MEAL_SLOTS } from '../lib/nutrition.js'
+import { dietGoalSheet, dietPlansSheet, addFoodSheet, nutritionEntrySheet } from '../sheets.jsx'
 import Icon from '../components/Icon.jsx'
 import { Button } from '../components/ui.jsx'
 import { tappable } from '../lib/use-sheet-keyboard.js'
@@ -18,18 +18,20 @@ export default function Diet() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const update = useStore(s => s.update)
-  const d = dietOf(S)
   const iso = todayISO()
   const todayRows = (S.nutrition || []).filter(r => r.d === iso)
   const removeEntry = id => update(s => { s.nutrition = (s.nutrition || []).filter(r => r.id !== id) })
 
   const recent = daySeries(S, { from: null, to: iso }).filter(r => r.d < iso && r.intake > 0).slice(-5).reverse()
-  const configured = d.kcalGoal || todayRows.length || (S.nutrition || []).length
+  const configured = goalFor(S, iso).kcalGoal || todayRows.length || (S.nutrition || []).length
 
   return <div className="narrow">
     <div className="hdr">
       <div><h1>{t('Diet')}</h1><div className="sub">{t("Today's intake")}</div></div>
-      <button className="iconbtn" onClick={dietGoalSheet} aria-label={t('Calorie goal')} title={t('Calorie goal')}><Icon name="target" /></button>
+      <div className="row" style={{ gap: 8, flex: 'none' }}>
+        <button className="iconbtn" onClick={dietPlansSheet} aria-label={t('Diet plans')} title={t('Diet plans')}><Icon name="folder" /></button>
+        <button className="iconbtn" onClick={dietGoalSheet} aria-label={t('Calorie goal')} title={t('Calorie goal')}><Icon name="target" /></button>
+      </div>
     </div>
 
     {!configured ? <div className="card">
