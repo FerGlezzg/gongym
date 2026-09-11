@@ -59,6 +59,7 @@ export default {
   'October': 'Oktober', 'November': 'November', 'December': 'Dezember',
   // --- body weight & goal ---
   'Quick check-in': 'Kurzer Check-in',
+  "Log your body weight to estimate calories burned for this activity.": "Erfasse dein Körpergewicht, um den Kalorienverbrauch dieser Aktivität zu schätzen.",
   'Log body weight': 'Körpergewicht eintragen',
   'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': 'Schieben oder tippen, um dein Gewicht zu setzen — vor jedem Training erfasst, damit deine Kurve ehrlich bleibt.',
   'Save & start workout': 'Speichern & Training starten',

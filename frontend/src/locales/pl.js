@@ -55,6 +55,7 @@ export default {
   'June': 'Czerwiec', 'July': 'Lipiec', 'August': 'Sierpień', 'September': 'Wrzesień',
   'October': 'Październik', 'November': 'Listopad', 'December': 'Grudzień',
   'Quick check-in': 'Szybkie ważenie',
+  "Log your body weight to estimate calories burned for this activity.": "Zapisz swoją masę ciała, aby oszacować kalorie spalone podczas tej aktywności.",
   'Log body weight': 'Zapisz masę ciała',
   'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': 'Przesuń lub dotknij, aby ustawić wagę — zapisywana przed każdym treningiem, żeby krzywa była uczciwa.',
   'Save & start workout': 'Zapisz i zacznij trening',

@@ -55,6 +55,7 @@ export default {
   'June': '6월', 'July': '7월', 'August': '8월', 'September': '9월',
   'October': '10월', 'November': '11월', 'December': '12월',
   'Quick check-in': '빠른 체중 체크',
+  "Log your body weight to estimate calories burned for this activity.": "이 활동으로 소모한 칼로리를 추정하려면 체중을 기록하세요.",
   'Log body weight': '체중 기록',
   'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': '슬라이드하거나 탭해서 체중을 설정하세요 — 매 운동 전에 기록되어 그래프가 정직하게 유지됩니다.',
   'Save & start workout': '저장하고 운동 시작',

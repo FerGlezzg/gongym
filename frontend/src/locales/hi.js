@@ -55,6 +55,7 @@ export default {
   'June': 'जून', 'July': 'जुलाई', 'August': 'अगस्त', 'September': 'सितंबर',
   'October': 'अक्टूबर', 'November': 'नवंबर', 'December': 'दिसंबर',
   'Quick check-in': 'झटपट वज़न चेक',
+  "Log your body weight to estimate calories burned for this activity.": "इस गतिविधि में जली कैलोरी का अनुमान लगाने के लिए अपना शरीर का वज़न दर्ज करें।",
   'Log body weight': 'शरीर का वज़न दर्ज करें',
   'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': 'वज़न सेट करने के लिए स्लाइड या टैप करें — हर वर्कआउट से पहले दर्ज होता है ताकि आपका ग्राफ़ सही रहे।',
   'Save & start workout': 'सहेजें और वर्कआउट शुरू करें',

@@ -57,6 +57,7 @@ export default {
   'October': 'ตุลาคม', 'November': 'พฤศจิกายน', 'December': 'ธันวาคม',
   // --- body weight & goal ---
   'Quick check-in': 'เช็คอินด่วน',
+  "Log your body weight to estimate calories burned for this activity.": "บันทึกน้ำหนักตัวของคุณเพื่อประมาณแคลอรีที่เผาผลาญจากกิจกรรมนี้",
   'Log body weight': 'บันทึกน้ำหนักตัว',
   'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': 'เลื่อนหรือแตะเพื่อตั้งน้ำหนัก — บันทึกก่อนออกกำลังกายทุกครั้งเพื่อให้กราฟตรงตามจริง',
   'Save & start workout': 'บันทึกแล้วเริ่มออกกำลังกาย',

@@ -55,6 +55,7 @@ export default {
   'June': 'Haziran', 'July': 'Temmuz', 'August': 'Ağustos', 'September': 'Eylül',
   'October': 'Ekim', 'November': 'Kasım', 'December': 'Aralık',
   'Quick check-in': 'Hızlı tartı',
+  "Log your body weight to estimate calories burned for this activity.": "Bu etkinlikte yakılan kalorileri tahmin etmek için vücut ağırlığını kaydet.",
   'Log body weight': 'Vücut ağırlığını kaydet',
   'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': 'Kilonu ayarlamak için kaydır veya dokun — eğrin dürüst kalsın diye her antrenmandan önce kaydedilir.',
   'Save & start workout': 'Kaydet ve antrenmana başla',

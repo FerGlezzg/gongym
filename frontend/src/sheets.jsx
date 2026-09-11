@@ -1603,7 +1603,6 @@ export const dayHubSheet = iso => ui().openSheet(close => <DayHub iso={iso} clos
 
 function EventSheet({ iso, event, close }) {
   const st = useStore(s => s.S)
-  const bwKg = bodyweightKgAt(st, iso || todayISO())
   const types = eventTypes(st)
   const seedType = event
     ? types.find(x => eventIconOf(x.emoji) === eventIconOf(event.emoji) && (x.met === event.met || x.kcalPerHour === event.kcalPerHour)) || null
@@ -1611,6 +1610,9 @@ function EventSheet({ iso, event, close }) {
 
   const [mode, setMode] = useState(null)                       // null | 'newType'
   const [date, setDate] = useState(event?.d || iso || todayISO())
+  // The bodyweight the kcal estimate uses tracks the date field itself, not just the day the
+  // sheet happened to open on — matters when creating an event for some other day.
+  const bwKg = bodyweightKgAt(st, date)
   const [typeKey, setTypeKey] = useState(seedType?.key || (event ? null : 'run'))
   const [name, setName] = useState(event?.name || '')
   const [icon, setIcon] = useState(event ? eventIconOf(event.emoji) : DEFAULT_EVENT_ICON)
@@ -1730,6 +1732,13 @@ function EventSheet({ iso, event, close }) {
     </div>
     {kcal > 0 && <div className="small dim" style={{ marginTop: 8 }}>
       {eventMinutes({ start, end })} min · ≈ {fmtNum(kcal)} {t('kcal')} — {t('added to the day’s expenditure')}
+    </div>}
+    {/* A MET-based (built-in) activity needs a bodyweight to turn into a kcal number — a flat
+        kcal/hour type (kph) does not. Silently sitting at 0 read as "events don't count towards
+        calories"; this names the actual missing ingredient and fixes it in one tap. */}
+    {kcal === 0 && met > 0 && !(bwKg > 0) && eventMinutes({ start, end }) > 0 && <div className="small dim row" style={{ marginTop: 8, gap: 8, alignItems: 'center' }}>
+      <span className="grow">{t('Log your body weight to estimate calories burned for this activity.')}</span>
+      <Button size="sm" variant="tinted" icon="scale" onClick={() => bwSheet()}>{t('Log body weight')}</Button>
     </div>}
 
     <h4 className="sec" style={{ marginTop: 14 }}>{t('Notifications')}</h4>

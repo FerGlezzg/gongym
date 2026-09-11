@@ -55,6 +55,7 @@ export default {
   'June': '六月', 'July': '七月', 'August': '八月', 'September': '九月',
   'October': '十月', 'November': '十一月', 'December': '十二月',
   'Quick check-in': '快速称重',
+  "Log your body weight to estimate calories burned for this activity.": "记录你的体重，以估算这项活动消耗的卡路里。",
   'Log body weight': '记录体重',
   'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': '滑动或点按设置体重——每次训练前记录，让你的曲线保持真实。',
   'Save & start workout': '保存并开始训练',

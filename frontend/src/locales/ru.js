@@ -55,6 +55,7 @@ export default {
   'June': 'Июнь', 'July': 'Июль', 'August': 'Август', 'September': 'Сентябрь',
   'October': 'Октябрь', 'November': 'Ноябрь', 'December': 'Декабрь',
   'Quick check-in': 'Быстрое взвешивание',
+  "Log your body weight to estimate calories burned for this activity.": "Запишите свой вес, чтобы оценить калории, сожжённые за это занятие.",
   'Log body weight': 'Записать вес тела',
   'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': 'Сдвинь или коснись, чтобы указать вес — он записывается перед каждой тренировкой, чтобы кривая была честной.',
   'Save & start workout': 'Сохранить и начать тренировку',
