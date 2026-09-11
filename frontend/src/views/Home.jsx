@@ -4,8 +4,8 @@ import { useStore } from '../store/useStore.js'
 import { effectiveRoutines, effectiveRoutineIds, nextTrainingDay, streakWeeks, lastBW } from '../lib/history.js'
 import { fmtNum, fmtDate, todayISO, DAYN, MONTHS_LONG } from '../lib/format.js'
 import { t, dateLocale } from '../lib/i18n.js'
-import { bwSheet, goalSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, dayHubSheet, weekPresetsSheet, monthPickerSheet } from '../sheets.jsx'
-import { dietOf } from '../lib/nutrition.js'
+import { bwSheet, goalSheet, calendarSheet, startFlow, starterPlanSheet, bwDeltaColor, dayHubSheet, weekPresetsSheet, monthPickerSheet, stepsSheet } from '../sheets.jsx'
+import { dietOf, bodyweightKgAt, stepsKcal } from '../lib/nutrition.js'
 import { eventIconOf } from '../lib/events.js'
 import LineChart from '../components/LineChart.jsx'
 import Heatmap from '../components/Heatmap.jsx'
@@ -48,6 +48,8 @@ export default function Home() {
   const prevBW = S.bodyweight.length > 1 ? S.bodyweight[S.bodyweight.length - 2] : null
   const delta = bw && prevBW ? bw.w - prevBW.w : null
   const doneToday = S.workouts.filter(w => w.d === todayISO()).at(-1) || null
+  const todaySteps = (S.steps || []).find(x => x.d === todayISO()) || null
+  const stepsBurn = todaySteps ? stepsKcal(todaySteps.n, bodyweightKgAt(S, todayISO())) : 0
 
   const bwPoints = S.bodyweight.slice(-30).map(b => ({ t: b.t || new Date(b.d).getTime(), y: b.w, d: b.d }))
   const activePreset = (S.weekPresets || []).find(p => p.id === S.activeWeekId)
@@ -167,6 +169,18 @@ export default function Home() {
         )}
         <div className="chart" style={{ marginTop: 8 }}><LineChart points={bwPoints} h={130} unit={S.unit} goal={S.targetW} /></div>
       </> : <div className="muted small">{t("No entries yet — log your weight to start the curve. It's also asked before every workout.")}</div>}
+    </div>
+
+    <div className="card">
+      <div className="row between" style={{ marginBottom: 6 }}>
+        <h2 style={{ margin: 0 }}>{t('Steps')}</h2>
+        <Button size="sm" icon={todaySteps ? 'pencil' : 'plus'} onClick={() => stepsSheet()}>{todaySteps ? t('Edit') : t('Log')}</Button>
+      </div>
+      {todaySteps ? <div className="row" style={{ gap: 8, alignItems: 'baseline' }}>
+        <span className="lrow-i" style={{ width: 34, height: 34, flex: 'none' }}><Icon name="footprints" /></span>
+        <div className="big">{fmtNum(todaySteps.n)}</div>
+        {stepsBurn > 0 && <span className="muted small" style={{ marginLeft: 'auto' }}>≈ {fmtNum(stepsBurn)} {t('kcal')}</span>}
+      </div> : <div className="muted small">{t('Log today’s steps to add them to your calorie burn.')}</div>}
     </div>
 
     {/* Calories today vs goal — the same summary card as the Diet screen; taps through to it. */}

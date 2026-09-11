@@ -243,6 +243,52 @@ export function bwSheet(opts = {}) {
   return h
 }
 
+/* ============================ steps ============================ */
+// One count per day, upserted like body weight — no device pedometer integration, you type
+// what your phone told you. Feeds the day's calorie estimate the same way a workout or a
+// timed event does (lib/nutrition.js stepsKcal, folded into estimatedExpenditure).
+function StepsSheet({ close }) {
+  const st = useStore(s => s.S)
+  const today = todayISO()
+  const existing = (st.steps || []).find(x => x.d === today)
+  const [n, setN] = useState(existing ? existing.n : 0)
+  const save = () => {
+    const v = Math.max(0, Math.round(n || 0))
+    if (!v) { toast(t('Enter a valid number')); return }
+    update(s => {
+      s.steps = s.steps || []
+      const ex = s.steps.find(x => x.d === today)
+      if (ex) ex.n = v; else s.steps.push({ d: today, n: v })
+      s.steps.sort((a, b) => (a.d < b.d ? -1 : 1))
+    })
+    close()
+    toast(t('Steps saved'))
+  }
+  const recent = [...(st.steps || [])].reverse().slice(0, 3)
+  const delEntry = d => update(s => { s.steps = s.steps.filter(x => x.d !== d) })
+  return <>
+    <h3>{t('Steps')}</h3>
+    <div className="muted small">{t('Today') + ', ' + fmtDate(today, true)}</div>
+    <div style={{ height: 10 }} />
+    <Stepper value={n} step={500} decimal={false} onChange={v => setN(Math.max(0, Math.round(v)))} />
+    <div style={{ height: 14 }} />
+    <Button variant="primary" onClick={save}>{t('Save')}</Button>
+    {recent.length > 0 && <>
+      <h4 className="sec">{t('Recent step counts')}</h4>
+      <div className="list" style={{ gap: 0 }}>
+        {recent.map(x => <div key={x.d} className="row between" style={{ padding: '9px 2px', borderBottom: '1px solid var(--sep)' }}>
+          <span className="small muted">{fmtDate(x.d, true)}</span>
+          <span className="row" style={{ gap: 12 }}><b>{fmtNum(x.n)}</b>
+            <button className="iconbtn" style={{ width: 32, height: 30, borderRadius: 8, fontSize: 15, color: 'var(--red)' }} onClick={() => delEntry(x.d)} aria-label="delete"><Icon name="trash" /></button></span>
+        </div>)}
+      </div>
+    </>}
+  </>
+}
+export function stepsSheet() {
+  ui().openSheet(close => <StepsSheet close={close} />)
+}
+
 /* ============================ import from another app ============================ */
 // Shows what a parsed export would actually do before anything is written. An import is
 // the one action where "just try it" is expensive — it's someone's entire training

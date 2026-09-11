@@ -58,6 +58,12 @@ export default {
   // --- body weight & goal ---
   'Quick check-in': 'Gyors bejelentkezés',
   "Log your body weight to estimate calories burned for this activity.": "Rögzítsd a testsúlyodat, hogy megbecsülhessük ennek a tevékenységnek az elégetett kalóriáit.",
+  "Steps": "Lépések",
+  "Enter a valid number": "Adj meg egy érvényes számot",
+  "Steps saved": "Lépések mentve",
+  "Recent step counts": "Legutóbbi lépésszámok",
+  "Log today’s steps to add them to your calorie burn.": "Rögzítsd a mai lépéseidet, hogy hozzáadódjanak az elégetett kalóriáidhoz.",
+  "Calorie history": "Kalóriaelőzmények",
   'Log body weight': 'Testsúly rögzítése',
   'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': 'Csúsztasd vagy koppints a súlyod beállításához — minden edzés előtt rögzítjük, hogy a görbéd valós maradjon.',
   'Save & start workout': 'Mentés és edzés indítása',

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  dietOf, dayTotals, ageFrom, bmrMifflin, tdee, workoutKcal, bodyweightKgAt,
+  dietOf, dayTotals, ageFrom, bmrMifflin, tdee, workoutKcal, stepsKcal, bodyweightKgAt,
   estimatedExpenditure, daySeries, weekAverages, scaleFood, entryAmountLabel, DIET_DEFAULT,
 } from './nutrition.js'
 
@@ -84,6 +84,18 @@ describe('workoutKcal', () => {
   })
 })
 
+describe('stepsKcal', () => {
+  it('is steps · 0.0005 · kg', () => {
+    // 10000 · 0.0005 · 70 = 350
+    expect(stepsKcal(10000, 70)).toBe(350)
+  })
+  it('is 0 without a step count or a bodyweight', () => {
+    expect(stepsKcal(0, 70)).toBe(0)
+    expect(stepsKcal(10000, 0)).toBe(0)
+    expect(stepsKcal(null, 70)).toBe(0)
+  })
+})
+
 describe('bodyweightKgAt', () => {
   const S = {
     unit: 'kg',
@@ -139,6 +151,12 @@ describe('estimatedExpenditure', () => {
     expect(estimatedExpenditure(withEvent, '2026-01-20', { now }).total).toBe(2448 + 800)
     expect(estimatedExpenditure({ ...withEvent, diet: { ...base.diet, workoutKcal: false } }, '2026-01-20', { now }).total).toBe(2448)
   })
+  it('folds a day\'s step count into the day (under the same toggle)', () => {
+    const withSteps = { ...base, steps: [{ d: '2026-01-20', n: 10000 }] }
+    // 10000 · 0.0005 · 80 kg = 400, on top of the TDEE 2448
+    expect(estimatedExpenditure(withSteps, '2026-01-20', { now }).total).toBe(2448 + 400)
+    expect(estimatedExpenditure({ ...withSteps, diet: { ...base.diet, workoutKcal: false } }, '2026-01-20', { now }).total).toBe(2448)
+  })
 })
 
 describe('daySeries', () => {
@@ -165,6 +183,16 @@ describe('daySeries', () => {
   it('honours the from/to window', () => {
     const rows = daySeries(S, { from: '2026-01-11', to: '2026-01-13', now })
     expect(rows.map(r => r.d)).toEqual(['2026-01-12'])
+  })
+  it('also rows a day whose only entry is a timed event or a step count', () => {
+    const withBoth = { ...S,
+      events: [{ d: '2026-01-05', start: '10:00', end: '11:00', met: 5 }],
+      steps: [{ d: '2026-01-18', n: 8000 }],
+    }
+    const rows = daySeries(withBoth, { now })
+    expect(rows.map(r => r.d)).toEqual(['2026-01-05', '2026-01-10', '2026-01-12', '2026-01-15', '2026-01-18'])
+    expect(rows[0].intake).toBe(0)
+    expect(rows[0].expenditure).toBeGreaterThan(0)
   })
 })
 

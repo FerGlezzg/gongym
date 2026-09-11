@@ -90,6 +90,18 @@ export function workoutKcal(workout, bodyweightKg, { met = TRAINING_MET } = {}) 
   return Math.round(met * kg * (ms / 3600000))
 }
 
+// ~0.0005 kcal per step per kg of bodyweight — a commonly cited rough estimate (roughly
+// 300-400 kcal for 10,000 steps at ~70 kg). Not stride- or pace-aware, same spirit as the
+// MET-based estimates above: an honest approximation, not a medical-grade number.
+const STEP_KCAL_PER_KG = 0.0005
+
+/** Rough kcal burned by a day's step count. Returns 0 without a bodyweight or a count. */
+export function stepsKcal(steps, bodyweightKg) {
+  const n = num(steps), kg = num(bodyweightKg)
+  if (!(n > 0) || !(kg > 0)) return 0
+  return Math.round(n * STEP_KCAL_PER_KG * kg)
+}
+
 /** Latest bodyweight logged on or before `iso`, converted to kg. null when there is none. */
 export function bodyweightKgAt(S, iso) {
   const entries = (S?.bodyweight || [])
@@ -102,7 +114,7 @@ export function bodyweightKgAt(S, iso) {
 
 /**
  * Estimated total calories burned on `iso`: profile TDEE plus, when S.diet.workoutKcal is
- * on, an estimate for every session logged that day.
+ * on, an estimate for every session, timed event and step count logged that day.
  * @returns {{ total:number|null, tdee:number|null, workout:number }}
  */
 export function estimatedExpenditure(S, iso, { now = Date.now() } = {}) {
@@ -125,6 +137,8 @@ export function estimatedExpenditure(S, iso, { now = Date.now() } = {}) {
     for (const ev of S?.events || []) {
       if (ev && ev.d === iso) workout += eventKcal(ev, kg)
     }
+    const steps = (S?.steps || []).find(s => s && s.d === iso)
+    if (steps) workout += stepsKcal(steps.n, kg)
   }
   const total = base == null ? (workout || null) : base + workout
   return { total, tdee: base, workout }
@@ -148,8 +162,14 @@ const isoDaysAgo = (iso, days) => {
 export function daySeries(S, { from, to = isoLocal(new Date()), now = Date.now() } = {}) {
   const d = dietOf(S)
   const days = new Set()
-  for (const row of S?.nutrition || []) if (row?.d && (!from || row.d >= from) && row.d <= to) days.add(row.d)
-  for (const w of S?.workouts || []) if (w?.d && (!from || w.d >= from) && w.d <= to) days.add(w.d)
+  const inRange = day => day && (!from || day >= from) && day <= to
+  for (const row of S?.nutrition || []) if (inRange(row?.d)) days.add(row.d)
+  for (const w of S?.workouts || []) if (inRange(w?.d)) days.add(w.d)
+  // A day that only has a timed event or a step count still has an expenditure worth
+  // showing — without this it never entered the set and its burn/balance just never
+  // appeared in the history, no matter how sure the estimate was.
+  for (const e of S?.events || []) if (inRange(e?.d)) days.add(e.d)
+  for (const s of S?.steps || []) if (inRange(s?.d)) days.add(s.d)
   return [...days].sort().map(iso => {
     const tot = dayTotals(S.nutrition, iso)
     const exp = estimatedExpenditure(S, iso, { now }).total

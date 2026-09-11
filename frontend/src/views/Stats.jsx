@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { EXIDX, matchExercise } from '../lib/exercises.js'
@@ -286,8 +286,10 @@ function EffortCard({ S }) {
 // balance between them over time. All of it is derived in lib/nutrition.js.
 function DietStats({ S }) {
   const [range, setRange] = useState(90)
-  const [page, setPage] = useState(0)
-  const railRef = useRef(null)
+  // Which of the three lines are drawn — all on by default, same as the three "Avg" tiles
+  // above already show all three at once. A toggle switched off just narrows what's passed
+  // to LineChart, so the y-axis rescales to whatever is actually left on screen.
+  const [shown, setShown] = useState({ intake: true, burn: true, balance: true })
   const now = Date.now()
   const d = dietOf(S)
   const to = todayISO()
@@ -306,17 +308,16 @@ function DietStats({ S }) {
   const recent = [...series].reverse().slice(0, 7)
   const macros = d.macroGoal
 
-  // Intake / burn / balance as a swipeable carousel — one chart per view, dots + a tap
-  // control on top. Each slide is presented the same way (title, range, line).
-  const slides = [
-    { key: 'intake', label: t('Intake'), title: t('Calorie intake'), sub: d.kcalGoal ? t('goal {0}', fmtNum(d.kcalGoal)) : null, pts: intakePts, color: 'var(--blue)', goal: d.kcalGoal },
-    { key: 'burn', label: t('Burn'), title: t('Calorie burn'), sub: wk.expenditure != null ? t('avg {0}', fmtNum(wk.expenditure)) : null, pts: expPts, color: 'var(--yellow)' },
+  // One shared chart instead of the old one-line-at-a-time carousel; a legend chip per line
+  // toggles it on/off. Balance needs at least two days of it to mean anything, same guard
+  // the carousel used to decide whether to offer that slide at all.
+  const allSeries = [
+    { key: 'intake', label: t('Intake'), pts: intakePts, color: 'var(--blue)' },
+    { key: 'burn', label: t('Burn'), pts: expPts, color: 'var(--yellow)' },
+    { key: 'balance', label: t('Balance'), pts: balPts, color: 'var(--acc)', disabled: balPts.length < 2 },
   ]
-  if (balPts.length > 1) slides.push({ key: 'balance', label: t('Balance'), title: t('Daily balance'), sub: t('intake minus burn'), pts: balPts, color: 'var(--acc)' })
-  const goPage = i => { setPage(i); railRef.current?.scrollTo({ left: i * railRef.current.clientWidth, behavior: 'smooth' }) }
-  const onRail = () => { const r = railRef.current; if (r) { const i = Math.round(r.scrollLeft / r.clientWidth); if (i !== page) setPage(i) } }
-  // The balance slide comes and goes with the range; keep the pager in bounds.
-  useEffect(() => { if (page > slides.length - 1) goPage(slides.length - 1) }, [slides.length])
+  const toggle = key => setShown(s => ({ ...s, [key]: !s[key] }))
+  const visible = allSeries.filter(s => shown[s.key] && !s.disabled && s.pts.length)
 
   return <>
     <div className="tiles">
@@ -327,17 +328,19 @@ function DietStats({ S }) {
     </div>
 
     <div className="card">
-      <Segmented className="seg-range" value={slides[page]?.key} onChange={k => goPage(slides.findIndex(s => s.key === k))}
-        options={slides.map(s => ({ value: s.key, label: s.label }))} />
+      <h2>{t('Calorie history')}</h2>
       <Segmented className="seg-range" value={range} onChange={setRange}
         options={[{ value: 30, label: '1M' }, { value: 90, label: '3M' }, { value: 365, label: '1Y' }, { value: 0, label: t('All') }]} />
-      <div className="crsl" ref={railRef} onScroll={onRail}>
-        {slides.map(s => <div key={s.key} className="crsl-slide">
-          <h2 style={{ marginTop: 0 }}>{s.title}{s.sub ? <span className="dim" style={{ textTransform: 'none', letterSpacing: 0 }}> · {s.sub}</span> : null}</h2>
-          <div className="chart"><LineChart points={s.pts} h={160} unit={kcal} goal={s.goal} color={s.color} /></div>
-        </div>)}
+      <div className="chart" style={{ marginTop: 10 }}>
+        <LineChart series={visible} h={180} unit={kcal} goal={shown.intake && d.kcalGoal ? d.kcalGoal : null} />
       </div>
-      {slides.length > 1 && <div className="ci-dots">{slides.map((s, i) => <span key={s.key} className={'ci-dot' + (i === page ? ' on' : '')} />)}</div>}
+      <div className="chart-legend">
+        {allSeries.filter(s => !s.disabled).map(s => (
+          <button key={s.key} className={shown[s.key] ? 'on' : ''} style={{ '--bc': s.color }} onClick={() => toggle(s.key)}>
+            <span className="sw" />{s.label}
+          </button>
+        ))}
+      </div>
     </div>
 
     {macros && <div className="card">

@@ -58,6 +58,12 @@ export default {
   // --- body weight & goal ---
   'Quick check-in': 'เช็คอินด่วน',
   "Log your body weight to estimate calories burned for this activity.": "บันทึกน้ำหนักตัวของคุณเพื่อประมาณแคลอรีที่เผาผลาญจากกิจกรรมนี้",
+  "Steps": "ก้าว",
+  "Enter a valid number": "กรอกตัวเลขที่ถูกต้อง",
+  "Steps saved": "บันทึกจำนวนก้าวแล้ว",
+  "Recent step counts": "จำนวนก้าวล่าสุด",
+  "Log today’s steps to add them to your calorie burn.": "บันทึกจำนวนก้าวของวันนี้เพื่อเพิ่มลงในแคลอรีที่เผาผลาญ",
+  "Calorie history": "ประวัติแคลอรี",
   'Log body weight': 'บันทึกน้ำหนักตัว',
   'Slide or tap to set your weight — tracked before every workout so your curve stays honest.': 'เลื่อนหรือแตะเพื่อตั้งน้ำหนัก — บันทึกก่อนออกกำลังกายทุกครั้งเพื่อให้กราฟตรงตามจริง',
   'Save & start workout': 'บันทึกแล้วเริ่มออกกำลังกาย',
